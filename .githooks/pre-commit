@@ -1,0 +1,4 @@
+#!/bin/sh
+# Milestone 0 gate: type-check and tests must pass before every commit.
+set -e
+pnpm -s check
