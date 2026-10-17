@@ -44,3 +44,23 @@ test("a bulk change shows a preview before anything changes", async ({ page, req
   // Preview only: nothing changed yet.
   expect(await (await request.get("/api/menu")).json()).toEqual(before);
 });
+
+test("an admin adds a new item and it reaches the order menu", async ({ page, request }) => {
+  await signIn(page);
+  await page.getByRole("button", { name: "المشروبات" }).click();
+  await page.getByRole("button", { name: "+ إضافة صنف" }).click();
+
+  const name = `عصير ${Math.floor(Math.random() * 100_000)}`;
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("الاسم بالعربية").fill(name);
+  await dialog.getByLabel("الاسم بالإنكليزية (للإيصال)").fill("Juice");
+  await dialog.getByRole("button", { name: "حجم واحد" }).click();
+  await dialog.getByLabel("حجم واحد ل.س").fill("250");
+  await dialog.getByRole("button", { name: "إضافة", exact: true }).click();
+
+  // The new item opens in the editor for removable ingredients and the like.
+  await expect(page.getByRole("dialog", { name: "تعديل الصنف" })).toBeVisible();
+  const menu = await (await request.get("/api/menu")).json();
+  const added = menu.categories.flatMap((c: { items: { nameAr: string }[] }) => c.items).find((i: { nameAr: string }) => i.nameAr === name);
+  expect(added.sizes).toEqual([expect.objectContaining({ sizeKey: "one", priceCents: 25_000 })]);
+});

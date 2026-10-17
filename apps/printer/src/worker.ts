@@ -5,6 +5,8 @@ import { backoffMs, claimNextJob, markDone, markFailed, NOTIFY_CHANNEL, recoverS
 export interface WorkerOptions {
   pool: pg.Pool;
   tenantId: string;
+  /** Only this printer's jobs, so a jammed kitchen printer never holds up receipts. */
+  printer?: string;
   /** Renders and sends one job; throws if the printer did not take it. */
   print: (job: PrintJob) => Promise<void>;
   pollMs?: number;
@@ -13,7 +15,7 @@ export interface WorkerOptions {
 }
 
 /** Runs until stop() is called. Wakes on NOTIFY, with a poll as safety net. */
-export function startWorker({ pool, tenantId, print, pollMs = 2_000, backoff = backoffMs, log = console.log }: WorkerOptions) {
+export function startWorker({ pool, tenantId, printer, print, pollMs = 2_000, backoff = backoffMs, log = console.log }: WorkerOptions) {
   let stopped = false;
   let wake: (() => void) | undefined;
   let listener: pg.PoolClient | undefined;
@@ -47,7 +49,7 @@ export function startWorker({ pool, tenantId, print, pollMs = 2_000, backoff = b
   async function drain() {
     for (;;) {
       if (stopped) return;
-      const job = await claimNextJob(pool, tenantId);
+      const job = await claimNextJob(pool, tenantId, printer);
       if (!job) return;
       try {
         await print(job);
@@ -64,7 +66,7 @@ export function startWorker({ pool, tenantId, print, pollMs = 2_000, backoff = b
   const done = (async () => {
     for (;;) {
       try {
-        const recovered = await recoverStuckJobs(pool, tenantId);
+        const recovered = await recoverStuckJobs(pool, tenantId, printer);
         if (recovered) log(`re-queued ${recovered} print job(s) interrupted by a restart`);
         break;
       } catch (err) {

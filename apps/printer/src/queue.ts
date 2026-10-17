@@ -12,19 +12,20 @@ export function backoffMs(attempts: number) {
 const columns = `id, tenant_id as "tenantId", printer, kind, payload, status, attempts,
   next_attempt_at as "nextAttemptAt", last_error as "lastError", created_at as "createdAt", printed_at as "printedAt"`;
 
-/** Claims the oldest due job for this tenant, or returns null. */
-export async function claimNextJob(pool: pg.Pool, tenantId: string): Promise<PrintJob | null> {
+/** Claims the oldest due job for this tenant (and printer, when given), or returns null. */
+export async function claimNextJob(pool: pg.Pool, tenantId: string, printer?: string): Promise<PrintJob | null> {
   const { rows } = await pool.query<PrintJob>(
     `update print_jobs set status = 'printing', attempts = attempts + 1
      where id = (
        select id from print_jobs
        where tenant_id = $1 and status = 'queued' and next_attempt_at <= now()
+         and ($2::text is null or printer = $2)
        order by created_at
        limit 1
        for update skip locked
      )
      returning ${columns}`,
-    [tenantId],
+    [tenantId, printer ?? null],
   );
   return rows[0] ?? null;
 }
@@ -53,11 +54,11 @@ export async function markFailed(pool: pg.Pool, job: PrintJob, error: string, ba
  * printer had already printed one, it prints twice: a duplicate ticket is
  * better than a lost one.
  */
-export async function recoverStuckJobs(pool: pg.Pool, tenantId: string) {
+export async function recoverStuckJobs(pool: pg.Pool, tenantId: string, printer?: string) {
   const { rowCount } = await pool.query(
     `update print_jobs set status = 'queued', next_attempt_at = now()
-     where tenant_id = $1 and status = 'printing'`,
-    [tenantId],
+     where tenant_id = $1 and status = 'printing' and ($2::text is null or printer = $2)`,
+    [tenantId, printer ?? null],
   );
   return rowCount ?? 0;
 }

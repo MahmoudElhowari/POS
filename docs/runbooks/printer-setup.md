@@ -28,7 +28,12 @@ In `.env` on the server:
 RECEIPT_PRINTER_HOST=192.168.1.50
 RECEIPT_PRINTER_PORT=9100
 RECEIPT_PRINTER_WIDTH_DOTS=576   # 80 mm paper; use 384 for 58 mm
+
+KITCHEN_PRINTER_HOST=192.168.1.51
+KITCHEN_PRINTER_PORT=9100
 ```
+
+Each printer has its own queue, so a jammed kitchen printer never holds up receipts. With only one printer, delete the `KITCHEN_PRINTER_HOST` line and kitchen tickets print on the receipt printer.
 
 Then restart the stack: `docker compose up -d`.
 
@@ -49,4 +54,4 @@ Some low-cost printers have small buffers. Set `RECEIPT_PRINTER_BAND_ROWS=24` in
 
 ## Working without a printer
 
-Set `RECEIPT_PRINTER_HOST=fake-printer` and start with `docker compose --profile dev up -d`. Every ticket is saved as a PNG in `printer-output/`.
+This is how the store runs until the printers are bought. `.env.example` already has `RECEIPT_PRINTER_HOST=fake-printer` and `KITCHEN_PRINTER_HOST=fake-kitchen-printer`. Start with `docker compose --profile dev up -d`, and every ticket is saved as a PNG in `printer-output/receipt/` or `printer-output/kitchen/`.

@@ -5,8 +5,10 @@ import { createLoginLimiter } from "./auth/limiter.js";
 import type { AuthStore, SessionStaff } from "./auth/store.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { MenuStore } from "./menu/store.js";
+import type { MoneyStore } from "./orders/money.js";
 import { OrderRefused, type OrderStore } from "./orders/store.js";
 import type { PrintJobView, PrintStore } from "./prints.js";
+import { DEFAULT_SETTINGS, type SettingsStore } from "./settings.js";
 
 let close: (() => void) | undefined;
 afterEach(() => close?.());
@@ -22,11 +24,13 @@ function fakePrints(jobs: Record<string, PrintJobView> = {}): PrintStore {
 const people: Record<string, SessionStaff> = {
   "1111": { staffId: "s-admin", name: "المدير", role: "admin" },
   "2222": { staffId: "s-cash", name: "كاشير", role: "cashier" },
+  "3333": { staffId: "s-man", name: "مشرف", role: "manager" },
 };
 
 function fakeAuth(): AuthStore {
   return {
     ensureInitialAdmin: async () => false,
+    approver: async (pin) => (people[pin] && people[pin].role !== "cashier" ? people[pin] : null),
     login: async (pin) => (people[pin] ? { token: `t-${pin}`, staff: people[pin] } : null),
     session: async (token) => people[token.replace("t-", "")] ?? null,
     logout: async () => {},
@@ -69,6 +73,30 @@ function fakeOrders(): OrderStore {
   };
 }
 
+const moneyCalls: unknown[][] = [];
+function fakeMoney(): MoneyStore {
+  const record =
+    (name: string) =>
+    async (...args: unknown[]) => {
+      moneyCalls.push([name, ...args]);
+      return {} as never;
+    };
+  return {
+    today: async () => [],
+    detail: record("detail"),
+    discount: record("discount"),
+    deliveryFee: record("deliveryFee"),
+    payCash: record("payCash"),
+    void: record("void"),
+    refund: record("refund"),
+    reprint: record("reprint"),
+  } as unknown as MoneyStore;
+}
+
+function fakeSettings(): SettingsStore {
+  return { all: async () => DEFAULT_SETTINGS, get: async (k) => DEFAULT_SETTINGS[k], update: async () => {} } as SettingsStore;
+}
+
 let menuChanges = 0;
 
 async function call(method: string, path: string, opts: { deps?: Partial<AppDeps>; token?: string; body?: unknown } = {}) {
@@ -81,6 +109,8 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     limiter: createLoginLimiter(),
     staff: fakeStaff(),
     orders: fakeOrders(),
+    money: fakeMoney(),
+    settings: fakeSettings(),
     menuChanged: () => menuChanges++,
     ...opts.deps,
   });
@@ -259,5 +289,36 @@ describe("orders", () => {
 
   it("looks customers up by phone", async () => {
     expect((await call("GET", "/customers?phone=0944", { token: "t-2222" })).status).toBe(200);
+  });
+});
+
+describe("money", () => {
+  const id = "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11";
+
+  it("needs a manager PIN for a discount", async () => {
+    const cashierPin = await call("POST", `/orders/${id}/discount`, { token: "t-2222", body: { percentBp: 1000, managerPin: "2222" } });
+    expect(cashierPin.status).toBe(403);
+    expect(await cashierPin.json()).toEqual({ error: "not_approver" });
+    const ok = await call("POST", `/orders/${id}/discount`, { token: "t-2222", body: { percentBp: 1000, managerPin: "3333" } });
+    expect(ok.status).toBe(200);
+    expect(moneyCalls.at(-1)).toEqual(["discount", id, { percentBp: 1000 }, "s-cash", "s-man"]);
+  });
+
+  it("takes whole pounds of cash only", async () => {
+    expect((await call("POST", `/orders/${id}/pay`, { token: "t-2222", body: { tenderedPounds: 50.5 } })).status).toBe(400);
+    expect((await call("POST", `/orders/${id}/pay`, { token: "t-2222", body: { tenderedPounds: 5000 } })).status).toBe(200);
+    expect(moneyCalls.at(-1)).toEqual(["payCash", id, 5000, "s-cash"]);
+  });
+
+  it("lets a cashier void with a listed reason", async () => {
+    expect((await call("POST", `/orders/${id}/void`, { token: "t-2222", body: { reason: "bored" } })).status).toBe(400);
+    expect((await call("POST", `/orders/${id}/void`, { token: "t-2222", body: { reason: "wrong_order" } })).status).toBe(200);
+    expect(moneyCalls.at(-1)).toEqual(["void", id, "wrong_order", "", "s-cash"]);
+  });
+
+  it("keeps settings for admins", async () => {
+    expect((await call("GET", "/admin/settings", { token: "t-2222" })).status).toBe(403);
+    expect(await (await call("GET", "/admin/settings", { token: "t-1111" })).json()).toMatchObject({ tax: { rateBp: 500 } });
+    expect((await call("PATCH", "/admin/settings", { token: "t-1111", body: { tax: { rateBp: -1, nameAr: "x", nameEn: "" } } })).status).toBe(400);
   });
 });

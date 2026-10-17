@@ -45,24 +45,8 @@ export function PrinterTest() {
     <section className="mx-auto flex max-w-xl flex-col gap-6">
       <h2 className="text-2xl font-bold">{t("printerTest.title")}</h2>
 
-      <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm" data-testid="printer-status">
-        <span
-          className={`size-4 rounded-full ${printer === null ? "bg-neutral-300" : printer.online ? "bg-emerald-500" : "bg-red-500"}`}
-        />
-        <div className="flex flex-col">
-          <span className="font-semibold">{t("printerTest.printer")}</span>
-          <span className="flex gap-2 text-sm text-neutral-600">
-            <span>
-              {printer === null
-                ? t("printerTest.checking")
-                : printer.online
-                  ? t("printerTest.online")
-                  : t("printerTest.offline")}
-            </span>
-            {printer?.host && <bdi dir="ltr">{`${printer.host}:${printer.port}`}</bdi>}
-          </span>
-        </div>
-      </div>
+      <PrinterCard testId="printer-status" label={t("printerTest.printer")} status={printer} />
+      {printer?.kitchen && <PrinterCard testId="kitchen-printer-status" label={t("printerTest.kitchen")} status={printer.kitchen} />}
 
       <button
         type="button"
@@ -97,5 +81,21 @@ export function PrinterTest() {
         </div>
       )}
     </section>
+  );
+}
+
+function PrinterCard({ testId, label, status }: { testId: string; label: string; status: Omit<PrinterStatus, "kitchen"> | null }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm" data-testid={testId}>
+      <span className={`size-4 rounded-full ${status === null ? "bg-neutral-300" : status.online ? "bg-emerald-500" : "bg-red-500"}`} />
+      <div className="flex flex-col">
+        <span className="font-semibold">{label}</span>
+        <span className="flex gap-2 text-sm text-neutral-600">
+          <span>{status === null ? t("printerTest.checking") : status.online ? t("printerTest.online") : t("printerTest.offline")}</span>
+          {status?.host && <bdi dir="ltr">{`${status.host}:${status.port}`}</bdi>}
+        </span>
+      </div>
+    </div>
   );
 }

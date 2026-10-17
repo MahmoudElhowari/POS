@@ -2,7 +2,7 @@ import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
 
-const outputDir = fileURLToPath(new URL("../../printer-output/", import.meta.url));
+const outputDir = fileURLToPath(new URL("../../printer-output/receipt/", import.meta.url));
 const pngs = () => {
   try {
     return readdirSync(outputDir).filter((f) => f.endsWith(".png"));

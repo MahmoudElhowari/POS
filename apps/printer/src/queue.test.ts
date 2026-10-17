@@ -18,10 +18,10 @@ describe.skipIf(!url)("print queue worker (Postgres)", () => {
   beforeAll(() => runMigrations(pool, db));
   afterAll(() => pool.end());
 
-  async function addJob(tenantId: string, status = "queued") {
+  async function addJob(tenantId: string, status = "queued", printer = "receipt") {
     const { rows } = await pool.query<{ id: string }>(
-      `insert into print_jobs (tenant_id, printer, kind, status) values ($1, 'receipt', 'test', $2) returning id`,
-      [tenantId, status],
+      `insert into print_jobs (tenant_id, printer, kind, status) values ($1, $3, 'test', $2) returning id`,
+      [tenantId, status, printer],
     );
     await pool.query(`select pg_notify('${NOTIFY_CHANNEL}', $1)`, [tenantId]);
     return rows[0]!.id;
@@ -92,5 +92,22 @@ describe.skipIf(!url)("print queue worker (Postgres)", () => {
     await new Promise((r) => setTimeout(r, 300));
     await worker.stop();
     await waitForStatus(other, "queued", 100);
+  });
+
+  it("keeps each printer's jobs apart, so a jammed kitchen printer never holds up receipts", async () => {
+    const tenantId = `t-${randomUUID()}`;
+    const kitchen = startWorker({
+      pool, tenantId, printer: "kitchen", pollMs: 50, backoff: () => 60_000, log: quiet,
+      print: async () => {
+        throw new Error("paper jam");
+      },
+    });
+    const receipt = startWorker({ pool, tenantId, printer: "receipt", pollMs: 50, log: quiet, print: async () => {} });
+    const jammed = await addJob(tenantId, "queued", "kitchen");
+    const id = await addJob(tenantId, "queued", "receipt");
+    await waitForStatus(id, "done");
+    await kitchen.stop();
+    await receipt.stop();
+    expect((await waitForStatus(jammed, "queued")).last_error).toBe("paper jam");
   });
 });

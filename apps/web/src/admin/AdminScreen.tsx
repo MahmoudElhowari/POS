@@ -4,9 +4,10 @@ import { type AdminMenu, api } from "../api";
 import { Addons } from "./Addons";
 import { BulkPrices } from "./BulkPrices";
 import { MenuItems } from "./MenuItems";
+import { SettingsForm } from "./SettingsForm";
 import { StaffList } from "./StaffList";
 
-type Tab = "items" | "addons" | "bulk" | "staff";
+type Tab = "items" | "addons" | "bulk" | "staff" | "settings";
 
 /** Back office for the admin (sign-in is handled by App). */
 export function AdminScreen() {
@@ -20,7 +21,7 @@ export function AdminScreen() {
     void reload();
   }, [reload]);
 
-  const tabs: Tab[] = ["items", "addons", "bulk", "staff"];
+  const tabs: Tab[] = ["items", "addons", "bulk", "staff", "settings"];
   return (
     <section className="flex flex-col gap-6">
       <div className="flex flex-wrap items-center gap-2">
@@ -39,6 +40,7 @@ export function AdminScreen() {
       {menu && tab === "addons" && <Addons addons={menu.addons} reload={reload} />}
       {tab === "bulk" && <BulkPrices reload={reload} />}
       {tab === "staff" && <StaffList />}
+      {tab === "settings" && <SettingsForm />}
     </section>
   );
 }
