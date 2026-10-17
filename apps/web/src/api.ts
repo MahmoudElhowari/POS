@@ -1,3 +1,5 @@
+import type { DraftProblem, OrderDraft } from "@pos/shared";
+
 export type JobStatus = "queued" | "printing" | "done" | "failed";
 
 export interface PrintJob {
@@ -76,10 +78,66 @@ export interface BulkRow {
   newCents: number;
 }
 
+export interface StaffMember {
+  id: string;
+  name: string;
+  role: Staff["role"];
+  active: boolean;
+}
+
+/** The sellable menu (GET /menu): only available, priced items. */
+export interface MenuSize {
+  id: string;
+  sizeKey: string;
+  nameAr: string;
+  nameEn: string;
+  priceCents: number;
+}
+
+export interface MenuItem {
+  id: string;
+  key: string;
+  nameAr: string;
+  nameEn: string;
+  descAr: string;
+  descEn: string;
+  halfAndHalf: boolean;
+  removable: { ar: string; en: string }[];
+  includedAddons: string[];
+  sizes: MenuSize[];
+}
+
+export interface Menu {
+  categories: { id: string; key: string; nameAr: string; nameEn: string; kind: "pizza" | "calzone" | "other"; items: MenuItem[] }[];
+  addons: { id: string; key: string; group: "crust_stuffing" | "extra"; nameAr: string; nameEn: string; prices: Record<string, number> }[];
+}
+
+export interface HeldOrder {
+  id: string;
+  draft: OrderDraft;
+  staffId: string;
+  updatedAt: string;
+}
+
+export interface SentOrder {
+  id: string;
+  number: number;
+  businessDate: string;
+  totalCents: number;
+}
+
+export interface CustomerMatch {
+  id: string;
+  name: string;
+  phone: string;
+  area: string;
+  directions: string;
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    readonly body: { error?: string; retryAfterMs?: number },
+    readonly body: { error?: string; retryAfterMs?: number; totalCents?: number; problems?: DraftProblem[] },
   ) {
     super(`${status} ${body.error ?? ""}`);
   }
@@ -120,4 +178,17 @@ export const api = {
   setAddonPrice: (id: string, pricePounds: number | null) => request<void>("PATCH", `/admin/addon-prices/${id}`, { pricePounds }),
   bulkPreview: (percentBp: number) => request<{ rows: BulkRow[] }>("POST", "/admin/prices/bulk/preview", { percentBp }),
   bulkApply: (percentBp: number) => request<{ changed: number }>("POST", "/admin/prices/bulk/apply", { percentBp }),
+
+  staff: () => request<StaffMember[]>("GET", "/admin/staff"),
+  addStaff: (input: { name: string; role: Staff["role"]; pin: string }) => request<{ id: string }>("POST", "/admin/staff", input),
+  updateStaff: (id: string, patch: Partial<{ name: string; role: Staff["role"]; pin: string; active: boolean }>) =>
+    request<void>("PATCH", `/admin/staff/${id}`, patch),
+
+  menu: () => request<Menu>("GET", "/menu"),
+  heldOrders: () => request<HeldOrder[]>("GET", "/orders/held"),
+  hold: (draft: OrderDraft, heldId?: string) => request<{ heldId: string }>("POST", "/orders/hold", { draft, heldId }),
+  discardHeld: (heldId: string) => request<void>("DELETE", `/orders/held/${heldId}`),
+  send: (draft: OrderDraft, expectedTotalCents: number, heldId?: string) =>
+    request<SentOrder>("POST", "/orders/send", { draft, expectedTotalCents, heldId }),
+  customers: (phone: string) => request<CustomerMatch[]>("GET", `/customers?phone=${encodeURIComponent(phone)}`),
 };

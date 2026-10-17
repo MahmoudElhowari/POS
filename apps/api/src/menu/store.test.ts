@@ -42,7 +42,9 @@ describe.skipIf(!url)("menu store (Postgres)", () => {
     const names = pub.categories.flatMap((c) => c.items.map((i) => i.nameEn));
     expect(names).not.toContain("Margherita Pizza"); // no price yet
     expect(names).toContain("Sultan Pizza");
-    expect(pub.addons.map((a) => a.key)).toEqual(["cheese"]); // only priced add-on so far
+    // Only the cheese crust is priced so far; the others are listed without prices.
+    expect(pub.addons.filter((a) => Object.keys(a.prices).length).map((a) => a.key)).toEqual(["cheese"]);
+    expect(pub.addons.find((a) => a.key === "sujuq")).toMatchObject({ group: "crust_stuffing", prices: {} });
 
     const sultan = find(await menu.adminMenu(), "Sultan Pizza");
     await menu.updateItem(sultan.id, { available: false });

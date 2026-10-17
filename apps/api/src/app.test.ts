@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type AppDeps, createApp } from "./app.js";
 import { createLoginLimiter } from "./auth/limiter.js";
 import type { AuthStore, SessionStaff } from "./auth/store.js";
+import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { MenuStore } from "./menu/store.js";
+import { OrderRefused, type OrderStore } from "./orders/store.js";
 import type { PrintJobView, PrintStore } from "./prints.js";
 
 let close: (() => void) | undefined;
@@ -42,6 +44,33 @@ function fakeMenu(): MenuStore {
   } as unknown as MenuStore;
 }
 
+function fakeStaff(): StaffStore {
+  return {
+    list: async () => [],
+    create: async (input) => {
+      if (input.pin === "1111") throw new StaffRefused("pin_taken");
+      return "new-staff";
+    },
+    update: async (id) => id === "00000000-0000-4000-8000-000000000001",
+  };
+}
+
+function fakeOrders(): OrderStore {
+  return {
+    hold: async () => "held-1",
+    held: async () => [],
+    discardHeld: async () => true,
+    send: async (_draft, _staff, expected) => {
+      if (expected !== 1500) throw new OrderRefused("price_changed", { totalCents: 1500 });
+      return { id: "o-1", number: 7, businessDate: "2026-10-17", totalCents: 1500 };
+    },
+    get: async () => null,
+    findCustomers: async () => [],
+  };
+}
+
+let menuChanges = 0;
+
 async function call(method: string, path: string, opts: { deps?: Partial<AppDeps>; token?: string; body?: unknown } = {}) {
   const app = createApp({
     checkDatabase: async () => true,
@@ -50,6 +79,9 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     menu: fakeMenu(),
     auth: fakeAuth(),
     limiter: createLoginLimiter(),
+    staff: fakeStaff(),
+    orders: fakeOrders(),
+    menuChanged: () => menuChanges++,
     ...opts.deps,
   });
   const server = app.listen(0);
@@ -161,5 +193,71 @@ describe("menu", () => {
 
   it("refuses a bulk change of -100%", async () => {
     expect((await call("POST", "/admin/prices/bulk/preview", { token: "t-1111", body: { percentBp: -10_000 } })).status).toBe(400);
+  });
+});
+
+describe("live menu updates", () => {
+  it("announces a successful menu change but not a preview", async () => {
+    const before = menuChanges;
+    const id = "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11";
+    await call("PATCH", `/admin/sizes/${id}`, { token: "t-1111", body: { pricePounds: 1900 } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(menuChanges).toBe(before + 1);
+    await call("POST", "/admin/prices/bulk/preview", { token: "t-1111", body: { percentBp: 500 } });
+    await call("PATCH", `/admin/sizes/${id}`, { token: "t-1111", body: { pricePounds: 1.5 } });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(menuChanges).toBe(before + 1);
+  });
+});
+
+describe("staff", () => {
+  it("is admin-only", async () => {
+    expect((await call("GET", "/admin/staff", { token: "t-2222" })).status).toBe(403);
+  });
+
+  it("adds a cashier and refuses a PIN someone else has", async () => {
+    const body = { name: "سامر", role: "cashier", pin: "4321" };
+    expect((await call("POST", "/admin/staff", { token: "t-1111", body })).status).toBe(201);
+    const taken = await call("POST", "/admin/staff", { token: "t-1111", body: { ...body, pin: "1111" } });
+    expect(taken.status).toBe(409);
+    expect(await taken.json()).toEqual({ error: "pin_taken" });
+  });
+
+  it("rejects a bad role or PIN", async () => {
+    expect((await call("POST", "/admin/staff", { token: "t-1111", body: { name: "x", role: "owner", pin: "4321" } })).status).toBe(400);
+    expect((await call("POST", "/admin/staff", { token: "t-1111", body: { name: "x", role: "cashier", pin: "12" } })).status).toBe(400);
+  });
+});
+
+describe("orders", () => {
+  const draft = {
+    type: "pickup",
+    customer: { name: "أبو أحمد" },
+    lines: [{ itemId: "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11", sizeKey: "can", addons: [], removals: [], qty: 1 }],
+  };
+
+  it("needs a signed-in staff member", async () => {
+    expect((await call("POST", "/orders/send", { body: { draft, expectedTotalCents: 1500 } })).status).toBe(401);
+  });
+
+  it("lets a cashier send an order", async () => {
+    const res = await call("POST", "/orders/send", { token: "t-2222", body: { draft, expectedTotalCents: 1500 } });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ number: 7 });
+  });
+
+  it("refuses a send when the price moved, with the new total", async () => {
+    const res = await call("POST", "/orders/send", { token: "t-2222", body: { draft, expectedTotalCents: 1400 } });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "price_changed", totalCents: 1500 });
+  });
+
+  it("rejects a malformed order", async () => {
+    const bad = { ...draft, type: "drive_through" };
+    expect((await call("POST", "/orders/send", { token: "t-2222", body: { draft: bad, expectedTotalCents: 1500 } })).status).toBe(400);
+  });
+
+  it("looks customers up by phone", async () => {
+    expect((await call("GET", "/customers?phone=0944", { token: "t-2222" })).status).toBe(200);
   });
 });

@@ -133,13 +133,12 @@ export function createMenuStore(db: Db, tenantId: string) {
               .filter((i) => i.sizes.length > 0),
           }))
           .filter((c) => c.items.length > 0),
-        addons: menu.addons
-          .filter((a) => a.available)
-          .map(({ available: _a, prices, ...a }) => ({
-            ...a,
-            prices: Object.fromEntries(prices.filter((p) => p.priceCents !== null).map((p) => [p.sizeKey, p.priceCents!])),
-          }))
-          .filter((a) => Object.keys(a.prices).length > 0),
+        // Every add-on is listed so built-in crusts are recognised even when that
+        // stuffing is not sold on its own; only priced, available ones have prices.
+        addons: menu.addons.map(({ available, prices, ...a }) => ({
+          ...a,
+          prices: available ? Object.fromEntries(prices.filter((p) => p.priceCents !== null).map((p) => [p.sizeKey, p.priceCents!])) : {},
+        })),
       };
     },
 
