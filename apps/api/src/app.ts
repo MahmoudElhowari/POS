@@ -2,9 +2,12 @@ import express, { type NextFunction, type Request, type Response } from "express
 import { z } from "zod";
 import type { LoginLimiter } from "./auth/limiter.js";
 import { PIN_PATTERN } from "./auth/pin.js";
+import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { AuthStore, Role, SessionStaff } from "./auth/store.js";
 import { NotFound, type MenuStore } from "./menu/store.js";
 import { addonPatch, addonPricePatch, bulkRequest, itemPatch, newItem, sizePatch } from "./menu/types.js";
+import { OrderRefused, type OrderStore } from "./orders/store.js";
+import { holdRequest, sendRequest } from "./orders/types.js";
 import type { PrintStore } from "./prints.js";
 
 export interface PrinterStatus {
@@ -20,7 +23,18 @@ export interface AppDeps {
   menu: MenuStore;
   auth: AuthStore;
   limiter: LoginLimiter;
+  staff: StaffStore;
+  orders: OrderStore;
+  /** Tells order screens to reload the menu (Socket.IO in production). */
+  menuChanged: () => void;
 }
+
+const staffInput = z.object({
+  name: z.string().trim().min(1).max(40),
+  role: z.enum(["admin", "manager", "cashier"]),
+  pin: z.string().regex(PIN_PATTERN),
+});
+const staffPatch = staffInput.partial().extend({ active: z.boolean().optional() });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -118,6 +132,15 @@ export function createApp(deps: AppDeps) {
   const admin = express.Router();
   admin.use(requireRole("admin"));
   admin.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
+  // Any successful menu change reaches the order screens straight away.
+  admin.use((req, res, next) => {
+    if (req.method !== "GET" && !req.path.startsWith("/staff")) {
+      res.on("finish", () => {
+        if (res.statusCode < 300 && !req.path.endsWith("/preview")) deps.menuChanged();
+      });
+    }
+    next();
+  });
 
   admin.get("/menu", async (_req, res) => {
     res.json(await deps.menu.adminMenu());
@@ -160,11 +183,62 @@ export function createApp(deps: AppDeps) {
     res.json({ changed: await deps.menu.bulkApply(percentBp, req.staff!.staffId) });
   });
 
+  admin.get("/staff", async (_req, res) => {
+    res.json(await deps.staff.list());
+  });
+
+  admin.post("/staff", async (req, res) => {
+    res.status(201).json({ id: await deps.staff.create(staffInput.parse(req.body)) });
+  });
+
+  admin.patch("/staff/:id", async (req, res) => {
+    const found = await deps.staff.update(req.params.id!, defined(staffPatch.parse(req.body)));
+    res.status(found ? 204 : 404).end();
+  });
+
   app.use("/admin", admin);
+
+  // ── Orders (Milestone 3) ──
+  const orders = express.Router();
+  orders.use(requireRole("admin", "manager", "cashier"));
+  orders.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
+
+  orders.get("/held", async (_req, res) => {
+    res.json(await deps.orders.held());
+  });
+
+  orders.post("/hold", async (req, res) => {
+    const { draft, heldId } = holdRequest.parse(req.body);
+    res.json({ heldId: await deps.orders.hold(draft, req.staff!.staffId, heldId) });
+  });
+
+  orders.delete("/held/:id", async (req, res) => {
+    res.status((await deps.orders.discardHeld(req.params.id!)) ? 204 : 404).end();
+  });
+
+  orders.post("/send", async (req, res) => {
+    const { draft, heldId, expectedTotalCents } = sendRequest.parse(req.body);
+    res.status(201).json(await deps.orders.send(draft, req.staff!.staffId, expectedTotalCents, heldId));
+  });
+
+  orders.get("/:id", async (req, res) => {
+    const order = await deps.orders.get(req.params.id!);
+    if (!order) return void res.status(404).json({ error: "not_found" });
+    res.json(order);
+  });
+
+  app.use("/orders", orders);
+
+  app.get("/customers", requireRole("admin", "manager", "cashier"), async (req, res) => {
+    const phone = z.string().max(20).parse(req.query.phone ?? "");
+    res.json(await deps.orders.findCustomers(phone));
+  });
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof z.ZodError) return void res.status(400).json({ error: "invalid", issues: err.issues });
     if (err instanceof NotFound) return void res.status(404).json({ error: "not_found" });
+    if (err instanceof StaffRefused) return void res.status(409).json({ error: err.code });
+    if (err instanceof OrderRefused) return void res.status(409).json({ error: err.code, ...err.detail });
     console.error(err);
     res.status(500).json({ error: "server_error" });
   });

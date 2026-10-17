@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, date, index, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 // Every table has tenant_id and every query filters by it (CLAUDE.md rule 2).
 
@@ -172,3 +172,119 @@ export type ItemSize = typeof itemSizes.$inferSelect;
 export type Addon = typeof addons.$inferSelect;
 export type AddonPrice = typeof addonPrices.$inferSelect;
 export type Staff = typeof staff.$inferSelect;
+
+// ── Customers and orders (Milestone 3) ────────────────────────────────
+
+export const customers = pgTable(
+  "customers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    name: text("name").notNull(),
+    /** Optional; one customer per phone number. */
+    phone: text("phone"),
+    area: text("area").notNull().default(""),
+    directions: text("directions").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("customers_phone").on(t.tenantId, t.phone).where(sql`${t.phone} is not null`)],
+);
+
+/**
+ * Orders on hold. These are drafts the cashier can still change, so they live
+ * apart from `orders`, which are never updated or deleted once sent.
+ */
+export const heldOrders = pgTable(
+  "held_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    staffId: uuid("staff_id").notNull().references(() => staff.id),
+    draft: jsonb("draft").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("held_orders_tenant").on(t.tenantId, t.updatedAt)],
+);
+
+export const orderType = pgEnum("order_type", ["dine_in", "pickup", "delivery"]);
+
+/** A sent order. Append-only (CLAUDE.md rule 3): changes are order_events rows. */
+export const orders = pgTable(
+  "orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    /** Store-local day the order was sent on; numbers restart at 1 each day. */
+    businessDate: date("business_date").notNull(),
+    number: integer("number").notNull(),
+    type: orderType("type").notNull(),
+    tableNo: integer("table_no"),
+    customerId: uuid("customer_id").references(() => customers.id),
+    customerName: text("customer_name").notNull(),
+    customerPhone: text("customer_phone"),
+    deliveryArea: text("delivery_area").notNull().default(""),
+    deliveryDirections: text("delivery_directions").notNull().default(""),
+    note: text("note").notNull().default(""),
+    totalCents: integer("total_cents").notNull(),
+    staffId: uuid("staff_id").notNull().references(() => staff.id),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("orders_daily_number").on(t.tenantId, t.businessDate, t.number)],
+);
+
+export interface OrderLineAddon {
+  key: string;
+  nameAr: string;
+  nameEn: string;
+  cents: number;
+}
+
+/** One line of a sent order, with names and prices frozen at the time of sale. */
+export const orderLines = pgTable(
+  "order_lines",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    lineNo: integer("line_no").notNull(),
+    itemId: uuid("item_id").notNull(),
+    nameAr: text("name_ar").notNull(),
+    nameEn: text("name_en").notNull(),
+    sizeKey: text("size_key").notNull(),
+    sizeNameAr: text("size_name_ar").notNull(),
+    sizeNameEn: text("size_name_en").notNull(),
+    otherHalfId: uuid("other_half_id"),
+    otherHalfNameAr: text("other_half_name_ar"),
+    otherHalfNameEn: text("other_half_name_en"),
+    addons: jsonb("addons").$type<OrderLineAddon[]>().notNull().default(sql`'[]'::jsonb`),
+    removals: jsonb("removals").$type<Ingredient[]>().notNull().default(sql`'[]'::jsonb`),
+    note: text("note").notNull().default(""),
+    qty: integer("qty").notNull(),
+    unitCents: integer("unit_cents").notNull(),
+    totalCents: integer("total_cents").notNull(),
+  },
+  (t) => [index("order_lines_order").on(t.orderId)],
+);
+
+export const orderEventKind = pgEnum("order_event_kind", ["sent"]);
+
+/** Everything that happens to an order after it is sent (voids and refunds come in Milestone 4). */
+export const orderEvents = pgTable(
+  "order_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    kind: orderEventKind("kind").notNull(),
+    staffId: uuid("staff_id").notNull().references(() => staff.id),
+    data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("order_events_order").on(t.orderId)],
+);
+
+export type Customer = typeof customers.$inferSelect;
+export type Order = typeof orders.$inferSelect;
+export type OrderLine = typeof orderLines.$inferSelect;

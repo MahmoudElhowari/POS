@@ -21,7 +21,8 @@
   "nav": {
     "menu": "Menu",
     "printer": "Printer test",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "order": "Orders"
   },
   "pin": {
     "title": "Enter your PIN",
@@ -36,7 +37,8 @@
     "tabs": {
       "items": "Items",
       "addons": "Add-ons",
-      "bulk": "Bulk prices"
+      "bulk": "Bulk prices",
+      "staff": "Staff"
     },
     "currency": "SYP",
     "noPrice": "No price",
@@ -82,6 +84,91 @@
     "sizes": {
       "regular": "Regular",
       "large": "Large"
+    }
+  },
+  "staff": {
+    "title": "Staff",
+    "add": "Add a staff member",
+    "addButton": "Add",
+    "name": "Name",
+    "role": "Role",
+    "pin": "PIN (4–6 digits)",
+    "newPin": "New PIN",
+    "changePin": "Change PIN",
+    "active": "Active",
+    "roles": {
+      "cashier": "Cashier",
+      "manager": "Manager",
+      "admin": "Admin"
+    },
+    "added": "Staff member added",
+    "saved": "Saved",
+    "badInput": "Enter a name and a 4–6 digit PIN",
+    "pin_taken": "Another staff member already uses this PIN",
+    "last_admin": "At least one active admin must remain",
+    "error": "Could not save"
+  },
+  "order": {
+    "type": "Order type",
+    "types": {
+      "dine_in": "Dine-in",
+      "pickup": "Pickup",
+      "delivery": "Delivery"
+    },
+    "tables": "Tables",
+    "table": "Table {{n}}",
+    "categories": "Categories",
+    "current": "Current order",
+    "recalled": "Recalled order",
+    "customer": "Customer",
+    "customerName": "Customer name",
+    "phone": "Phone (optional)",
+    "area": "Area (optional)",
+    "directions": "Directions (optional)",
+    "matches": "Returning customers",
+    "empty": "Tap an item to add it",
+    "gone": "Item no longer sold",
+    "lineUnavailable": "Not available now, remove or change it",
+    "orderNote": "Order note",
+    "total": "Total",
+    "send": "Send order",
+    "hold": "Hold",
+    "new": "New order",
+    "heldButton": "On hold ({{n}})",
+    "heldTitle": "Orders on hold",
+    "noHeld": "No orders on hold",
+    "lineCount": "{{n}} lines",
+    "discard": "Discard",
+    "close": "Close",
+    "size": "Size",
+    "halfAndHalf": "Half and half",
+    "wholePizza": "Whole pizza",
+    "chooseHalf": "Choose the other half",
+    "otherHalf": "Other half: {{name}}",
+    "halfName": "½ {{a}} / ½ {{b}}",
+    "addons": "Add-ons (up to {{max}} crust stuffings)",
+    "builtInCrust": "This pizza already has a stuffed crust",
+    "without": "Without",
+    "withoutName": "No {{name}}",
+    "lineNote": "Note for the kitchen",
+    "qty": "Quantity",
+    "less": "Less",
+    "more": "More",
+    "addLine": "Add to order",
+    "saveLine": "Save",
+    "sent": "Order {{number}} sent · {{total}} SYP",
+    "held": "{{name}}'s order is on hold",
+    "notHeld": "This order was already sent or discarded",
+    "priceChanged": "Prices changed; the new total is {{total}} SYP. Check the order and send again",
+    "serverError": "Could not reach the server",
+    "problems": {
+      "no_lines": "The order is empty",
+      "no_customer_name": "Enter the customer's name",
+      "no_table": "Choose a table",
+      "bad_table": "Invalid table",
+      "item_unavailable": "Line {{line}} is not available",
+      "bad_removal": "Invalid change on line {{line}}",
+      "pricing": "Line {{line}} cannot be priced"
     }
   }
 }

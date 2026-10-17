@@ -6,6 +6,6 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     port: 5173,
-    proxy: { "/api": { target: "http://localhost:3000", rewrite: (p) => p.replace(/^\/api/, "") } },
+    proxy: { "/api": { target: "http://localhost:3000", ws: true, rewrite: (p) => p.replace(/^\/api/, "") } },
   },
 });

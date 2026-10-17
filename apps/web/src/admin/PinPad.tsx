@@ -14,11 +14,7 @@ export function PinPad({ onSignedIn }: { onSignedIn: (token: string, staff: Staf
     setMessage(null);
     try {
       const { token, staff } = await api.login(pin);
-      if (staff.role !== "admin") {
-        setMessage(t("pin.forbidden"));
-      } else {
-        onSignedIn(token, staff);
-      }
+      onSignedIn(token, staff);
     } catch (err) {
       if (err instanceof ApiError && err.status === 429) {
         setMessage(t("pin.locked", { seconds: Math.ceil((err.body.retryAfterMs ?? 60_000) / 1000) }));
