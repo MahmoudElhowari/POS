@@ -10,7 +10,13 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.11",
+    "@pos/db": "workspace:*",
     "@pos/shared": "workspace:*",
+    "pg": "^8.23.1",
     "tsx": "^4.23.15"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

@@ -3,7 +3,7 @@ import { readPrinterConfig } from "./config.js";
 
 describe("readPrinterConfig", () => {
   it("defaults to an 80 mm printer on port 9100", () => {
-    expect(readPrinterConfig({})).toEqual({ host: "127.0.0.1", port: 9100, widthDots: 576 });
+    expect(readPrinterConfig({})).toEqual({ host: "127.0.0.1", port: 9100, widthDots: 576, bandRows: 255 });
   });
 
   it("reads the fixed IP from the environment", () => {

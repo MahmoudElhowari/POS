@@ -6,6 +6,19 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pos
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: pos_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U pos -d pos_test"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://pos:test@localhost:5432/pos_test
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -15,6 +28,30 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
-      - run: docker compose config --quiet
-        env:
-          POSTGRES_PASSWORD: ci
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start the stack with the fake printer
+        run: |
+          cp .env.example .env
+          sed -i 's/^RECEIPT_PRINTER_HOST=.*/RECEIPT_PRINTER_HOST=fake-printer/' .env
+          docker compose --profile dev up -d --build
+          for i in $(seq 1 60); do curl -sf localhost:8080/api/health && break; sleep 2; done
+      - run: pnpm --filter @pos/e2e exec playwright install --with-deps chromium
+      - run: pnpm --filter @pos/e2e e2e
+      - name: Service logs
+        if: failure()
+        run: docker compose --profile dev logs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: printer-output
+          path: printer-output/
