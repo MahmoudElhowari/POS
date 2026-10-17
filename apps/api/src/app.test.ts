@@ -1,6 +1,9 @@
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
 import { type AppDeps, createApp } from "./app.js";
+import { createLoginLimiter } from "./auth/limiter.js";
+import type { AuthStore, SessionStaff } from "./auth/store.js";
+import type { MenuStore } from "./menu/store.js";
 import type { PrintJobView, PrintStore } from "./prints.js";
 
 let close: (() => void) | undefined;
@@ -14,18 +17,52 @@ function fakePrints(jobs: Record<string, PrintJobView> = {}): PrintStore {
   };
 }
 
-async function call(method: string, path: string, deps: Partial<AppDeps> = {}) {
+const people: Record<string, SessionStaff> = {
+  "1111": { staffId: "s-admin", name: "المدير", role: "admin" },
+  "2222": { staffId: "s-cash", name: "كاشير", role: "cashier" },
+};
+
+function fakeAuth(): AuthStore {
+  return {
+    ensureInitialAdmin: async () => false,
+    login: async (pin) => (people[pin] ? { token: `t-${pin}`, staff: people[pin] } : null),
+    session: async (token) => people[token.replace("t-", "")] ?? null,
+    logout: async () => {},
+  };
+}
+
+const calls: unknown[][] = [];
+function fakeMenu(): MenuStore {
+  return {
+    publicMenu: async () => ({ categories: [], addons: [] }),
+    adminMenu: async () => ({ categories: [], addons: [] }),
+    updateSize: async (...args: unknown[]) => void calls.push(["updateSize", ...args]),
+    bulkPreview: async () => [],
+    bulkApply: async () => 3,
+  } as unknown as MenuStore;
+}
+
+async function call(method: string, path: string, opts: { deps?: Partial<AppDeps>; token?: string; body?: unknown } = {}) {
   const app = createApp({
     checkDatabase: async () => true,
     prints: fakePrints(),
     printerStatus: async () => ({ host: "192.168.1.50", port: 9100, online: true }),
-    ...deps,
+    menu: fakeMenu(),
+    auth: fakeAuth(),
+    limiter: createLoginLimiter(),
+    ...opts.deps,
   });
   const server = app.listen(0);
   close = () => server.close();
   await new Promise((resolve) => server.once("listening", resolve));
   const { port } = server.address() as AddressInfo;
-  return fetch(`http://127.0.0.1:${port}${path}`, { method });
+  const headers: Record<string, string> = { "content-type": "application/json" };
+  if (opts.token) headers.authorization = `Bearer ${opts.token}`;
+  return fetch(`http://127.0.0.1:${port}${path}`, {
+    method,
+    headers,
+    ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
+  });
 }
 
 const failedJob: PrintJobView = {
@@ -44,8 +81,10 @@ describe("GET /health", () => {
 
   it("is 503 when the database is down", async () => {
     const res = await call("GET", "/health", {
-      checkDatabase: async () => {
-        throw new Error("down");
+      deps: {
+        checkDatabase: async () => {
+          throw new Error("down");
+        },
       },
     });
     expect(res.status).toBe(503);
@@ -61,17 +100,66 @@ describe("printing", () => {
 
   it("returns a job's status, or 404", async () => {
     const prints = fakePrints({ "job-9": failedJob });
-    expect(await (await call("GET", "/print/jobs/job-9", { prints })).json()).toMatchObject({ status: "failed" });
-    expect((await call("GET", "/print/jobs/nope", { prints })).status).toBe(404);
+    expect(await (await call("GET", "/print/jobs/job-9", { deps: { prints } })).json()).toMatchObject({ status: "failed" });
+    expect((await call("GET", "/print/jobs/nope", { deps: { prints } })).status).toBe(404);
   });
 
   it("retries only failed jobs", async () => {
     const prints = fakePrints({ "job-9": failedJob });
-    expect((await call("POST", "/print/jobs/job-9/retry", { prints })).status).toBe(202);
-    expect((await call("POST", "/print/jobs/nope/retry", { prints })).status).toBe(409);
+    expect((await call("POST", "/print/jobs/job-9/retry", { deps: { prints } })).status).toBe(202);
+    expect((await call("POST", "/print/jobs/nope/retry", { deps: { prints } })).status).toBe(409);
   });
 
   it("reports the printer status", async () => {
     expect(await (await call("GET", "/printer/status")).json()).toEqual({ host: "192.168.1.50", port: 9100, online: true });
+  });
+});
+
+describe("PIN login", () => {
+  it("signs in with a right PIN and refuses a wrong one", async () => {
+    const ok = await call("POST", "/auth/pin", { body: { pin: "1111" } });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ token: "t-1111", staff: { role: "admin" } });
+    expect((await call("POST", "/auth/pin", { body: { pin: "9999" } })).status).toBe(401);
+  });
+
+  it("rejects a PIN that is not 4–6 digits", async () => {
+    expect((await call("POST", "/auth/pin", { body: { pin: "12a4" } })).status).toBe(400);
+  });
+
+  it("locks after 5 wrong PINs, even for the right one", async () => {
+    const limiter = createLoginLimiter();
+    for (let i = 0; i < 5; i++) await call("POST", "/auth/pin", { deps: { limiter }, body: { pin: "9999" } });
+    const res = await call("POST", "/auth/pin", { deps: { limiter }, body: { pin: "1111" } });
+    expect(res.status).toBe(429);
+  });
+});
+
+describe("menu", () => {
+  it("serves the public menu without signing in", async () => {
+    expect((await call("GET", "/menu")).status).toBe(200);
+  });
+
+  it("keeps admin routes for admins", async () => {
+    expect((await call("GET", "/admin/menu")).status).toBe(401);
+    expect((await call("GET", "/admin/menu", { token: "t-2222" })).status).toBe(403);
+    expect((await call("GET", "/admin/menu", { token: "t-1111" })).status).toBe(200);
+  });
+
+  it("passes the admin's id with a price change", async () => {
+    const id = "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11";
+    const res = await call("PATCH", `/admin/sizes/${id}`, { token: "t-1111", body: { pricePounds: 1900 } });
+    expect(res.status).toBe(204);
+    expect(calls.at(-1)).toEqual(["updateSize", id, { pricePounds: 1900 }, "s-admin"]);
+  });
+
+  it("rejects fractional pounds and unknown ids", async () => {
+    const id = "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11";
+    expect((await call("PATCH", `/admin/sizes/${id}`, { token: "t-1111", body: { pricePounds: 19.5 } })).status).toBe(400);
+    expect((await call("PATCH", "/admin/sizes/not-a-uuid", { token: "t-1111", body: { pricePounds: 1 } })).status).toBe(404);
+  });
+
+  it("refuses a bulk change of -100%", async () => {
+    expect((await call("POST", "/admin/prices/bulk/preview", { token: "t-1111", body: { percentBp: -10_000 } })).status).toBe(400);
   });
 });

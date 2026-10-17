@@ -17,5 +17,71 @@
     "willRetry": "Will retry automatically",
     "retry": "Retry",
     "error": "Cannot reach the server"
+  },
+  "nav": {
+    "menu": "Menu",
+    "printer": "Printer test",
+    "signOut": "Sign out"
+  },
+  "pin": {
+    "title": "Enter your PIN",
+    "clear": "Clear",
+    "enter": "Enter",
+    "wrong": "Wrong PIN",
+    "locked": "Too many tries, wait {{seconds}} seconds",
+    "forbidden": "Admins only",
+    "error": "Cannot reach the server"
+  },
+  "admin": {
+    "tabs": {
+      "items": "Items",
+      "addons": "Add-ons",
+      "bulk": "Bulk prices"
+    },
+    "currency": "SYP",
+    "noPrice": "No price",
+    "hidden": "Hidden from orders",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "builtIn": "Stuffed crust included",
+    "edit": {
+      "title": "Edit item",
+      "nameAr": "Arabic name",
+      "nameEn": "English name (receipt)",
+      "descAr": "Arabic ingredients",
+      "descEn": "English ingredients",
+      "sizes": "Sizes and prices",
+      "removable": "Removable ingredients",
+      "removableHint": "One per line: عربي | English",
+      "builtIn": "Crust stuffing included in price",
+      "save": "Save",
+      "cancel": "Cancel",
+      "saved": "Saved",
+      "badPrice": "Price must be a whole number of pounds",
+      "error": "Could not save"
+    },
+    "addons": {
+      "title": "Pizza add-ons",
+      "stuffing": "Crust stuffing (up to two)",
+      "extra": "Extras"
+    },
+    "bulk": {
+      "title": "Change all prices by a percentage",
+      "percent": "Percent %",
+      "hint": "E.g. 10 to raise prices 10% or -5 to lower them 5%. Rounded to whole pounds.",
+      "preview": "Preview",
+      "apply": "Apply to {{count}} prices",
+      "confirm": "Apply now? Past orders keep their prices.",
+      "item": "Item",
+      "size": "Size",
+      "old": "Current",
+      "new": "New",
+      "done": "{{count}} prices changed",
+      "none": "Nothing changes"
+    },
+    "sizes": {
+      "regular": "Regular",
+      "large": "Large"
+    }
   }
 }

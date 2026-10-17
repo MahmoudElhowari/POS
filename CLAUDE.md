@@ -25,6 +25,7 @@ apps/printer      print queue, ticket renderer, ESC/POS sender
 packages/shared   types, money math, tax rules, validation
 packages/db       Drizzle schema, db client, migration runner (used by api and printer)
 db/migrations     generated SQL migrations (never edit one after it is applied)
+db/seed           menu seed loaded on first start (romantica-menu.json)
 tools/fake-printer  dev/CI stand-in printer on 9100 that saves PNGs
 e2e/              Playwright tests against the full Compose stack
 docs/             PLAN.md, decisions/, runbooks, milestone plans
@@ -40,6 +41,7 @@ docs/             PLAN.md, decisions/, runbooks, milestone plans
 - `docker compose up --build` starts the full system: web on :8080, api on :3000, plus printer and postgres.
 - `pnpm db:generate` generates a migration from `packages/db/src/schema.ts`. Migrations are applied automatically when api or printer starts.
 - Database tests run only when `TEST_DATABASE_URL` is set, for example `postgres://pos:test@localhost:55432/pos_test` against a throwaway Postgres container. CI always sets it.
+- `pnpm --filter @pos/api menu:import [file.json]` re-imports a menu file. It is idempotent and logs every price that moved.
 - `docker compose --profile dev up -d --build` (with `RECEIPT_PRINTER_HOST=fake-printer` in `.env`) followed by `pnpm --filter @pos/e2e e2e` runs the end-to-end tests. Printed tickets land in `printer-output/`.
 
 ## Non-negotiable rules

@@ -12,7 +12,7 @@ const pngs = () => {
 };
 
 test("prints a test ticket from the Arabic screen", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/#/printer");
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByRole("heading", { name: "رومانتيكا بيتزا" })).toBeVisible();
   await expect(page.getByTestId("printer-status")).toContainText("متصلة");

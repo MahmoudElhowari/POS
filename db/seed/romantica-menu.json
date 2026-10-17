@@ -1,0 +1,1534 @@
+{
+  "source": "Romantica a1.pdf menu + old menu price photos, 2026-10-17. Prices in cents; null = not priced yet.",
+  "categories": [
+    {
+      "key": "classics",
+      "nameAr": "الكلاسيكية",
+      "nameEn": "Classics",
+      "kind": "pizza",
+      "items": [
+        {
+          "key": "margherita-pizza",
+          "nameAr": "بيتزا مرغريتا",
+          "nameEn": "Margherita Pizza",
+          "descAr": "صوص، جبنة",
+          "descEn": "Pizza Sauce, Cheese",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "margherita-pizza-saut",
+          "nameAr": "بيتزا مرغريتا فطر سوتيه",
+          "nameEn": "Margherita Pizza Sauté",
+          "descAr": "فطر، صوص، جبنة",
+          "descEn": "Sautéed Mushrooms, Sauce, Cheese",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "فطر",
+              "en": "Sautéed Mushrooms"
+            },
+            {
+              "ar": "صوص",
+              "en": "Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "four-seasons-pizza",
+          "nameAr": "بيتزا الفصول الأربعة",
+          "nameEn": "Four Seasons Pizza",
+          "descAr": "فطر، فليفلة، بندورة، زيتون",
+          "descEn": "Mushrooms, Green Pepper, Tomatoes, Olives",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "فطر",
+              "en": "Mushrooms"
+            },
+            {
+              "ar": "فليفلة",
+              "en": "Green Pepper"
+            },
+            {
+              "ar": "بندورة",
+              "en": "Tomatoes"
+            },
+            {
+              "ar": "زيتون",
+              "en": "Olives"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "four-cheese-pizza",
+          "nameAr": "بيتزا فور تشيز",
+          "nameEn": "Four Cheese Pizza",
+          "descAr": "موزاريلا، روكفور، شيدر، بارميزان",
+          "descEn": "Mozzarella, Roquefort, Cheddar, Parmesan",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "موزاريلا",
+              "en": "Mozzarella"
+            },
+            {
+              "ar": "روكفور",
+              "en": "Roquefort"
+            },
+            {
+              "ar": "شيدر",
+              "en": "Cheddar"
+            },
+            {
+              "ar": "بارميزان",
+              "en": "Parmesan"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "romantica-pizza",
+          "nameAr": "بيتزا رومانتيكا",
+          "nameEn": "Romantica Pizza",
+          "descAr": "خضار، زيتون، بيبروني، سلامي، مرتديلا، هوت دوغ",
+          "descEn": "Green Peppers, Olives, Mushrooms, Salami, Pepperoni, Mortadella, Hot Dog",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "pepperoni-pizza",
+          "nameAr": "بيتزا بيبروني",
+          "nameEn": "Pepperoni Pizza",
+          "descAr": "صوص، جبنة، بيبروني",
+          "descEn": "Pizza Sauce, Cheese, Pepperoni",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "بيبروني",
+              "en": "Pepperoni"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "pepperoni-saut-ed-mushrooms-pizza",
+          "nameAr": "بيتزا بيبروني فطر سوتيه",
+          "nameEn": "Pepperoni & Sautéed Mushrooms Pizza",
+          "descAr": "بيبروني، فطر سوتيه",
+          "descEn": "Pepperoni, Sautéed Mushrooms",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "بيبروني",
+              "en": "Pepperoni"
+            },
+            {
+              "ar": "فطر سوتيه",
+              "en": "Sautéed Mushrooms"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "salami-pizza",
+          "nameAr": "بيتزا سلامي",
+          "nameEn": "Salami Pizza",
+          "descAr": "صوص، جبنة، سلامي",
+          "descEn": "Pizza Sauce, Cheese, Salami",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "سلامي",
+              "en": "Salami"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "mortadella-pizza",
+          "nameAr": "بيتزا مرتديلا",
+          "nameEn": "Mortadella Pizza",
+          "descAr": "صوص، جبنة، مرتديلا",
+          "descEn": "Pizza Sauce, Cheese, Mortadella",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "مرتديلا",
+              "en": "Mortadella"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "hot-dog-pizza",
+          "nameAr": "بيتزا هوت دوغ",
+          "nameEn": "Hot Dog Pizza",
+          "descAr": "صوص، جبنة، هوت دوغ",
+          "descEn": "Pizza Sauce, Cheese, Hot Dog",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "هوت دوغ",
+              "en": "Hot Dog"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "smoked-turkey-pizza",
+          "nameAr": "بيتزا حبش مدخن",
+          "nameEn": "Smoked Turkey Pizza",
+          "descAr": "صوص، جبنة، حبش مدخن",
+          "descEn": "Pizza Sauce, Cheese, Smoked Turkey",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "حبش مدخن",
+              "en": "Smoked Turkey"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "sausage-pizza",
+          "nameAr": "بيتزا سجق",
+          "nameEn": "Sausage Pizza",
+          "descAr": "صوص، جبنة، سجق",
+          "descEn": "Pizza Sauce, Cheese, Sujuq Sausage",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "سجق",
+              "en": "Sujuq Sausage"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        },
+        {
+          "key": "hawaiian-pizza",
+          "nameAr": "بيتزا هاواي",
+          "nameEn": "Hawaiian Pizza",
+          "descAr": "سلامي، أناناس",
+          "descEn": "Salami, Pineapple",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "سلامي",
+              "en": "Salami"
+            },
+            {
+              "ar": "أناناس",
+              "en": "Pineapple"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "specialties",
+      "nameAr": "المميزة",
+      "nameEn": "Specialties",
+      "kind": "pizza",
+      "items": [
+        {
+          "key": "emperor-pizza",
+          "nameAr": "بيتزا الامبراطور",
+          "nameEn": "Emperor Pizza",
+          "descAr": "سلامي، سجق، فطر سوتيه، حبش مدخن",
+          "descEn": "Salami, Sujuq Sausage, Sauté Mushrooms, Smoked Turkey",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "سلامي",
+              "en": "Salami"
+            },
+            {
+              "ar": "سجق",
+              "en": "Sujuq Sausage"
+            },
+            {
+              "ar": "فطر سوتيه",
+              "en": "Sauté Mushrooms"
+            },
+            {
+              "ar": "حبش مدخن",
+              "en": "Smoked Turkey"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 110000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 220000
+            }
+          ]
+        },
+        {
+          "key": "olympic-pizza",
+          "nameAr": "بيتزا أوليمبيك",
+          "nameEn": "Olympic Pizza",
+          "descAr": "سجق، حبش مدخن، فطر، بندورة، صوص حار",
+          "descEn": "Sujuq, Smoked Turkey, Mushrooms, Tomato, Hot Sauce",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "سجق",
+              "en": "Sujuq"
+            },
+            {
+              "ar": "حبش مدخن",
+              "en": "Smoked Turkey"
+            },
+            {
+              "ar": "فطر",
+              "en": "Mushrooms"
+            },
+            {
+              "ar": "بندورة",
+              "en": "Tomato"
+            },
+            {
+              "ar": "صوص حار",
+              "en": "Hot Sauce"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "sultan-pizza",
+          "nameAr": "بيتزا السلطان",
+          "nameEn": "Sultan Pizza",
+          "descAr": "بيبروني، سلامي، مرتديلا، هوت دوغ، حبش مدخن، محشية سجق",
+          "descEn": "Pepperoni, Salami, Mortadella, Hot Dog, Smoked Turkey, Sujuq stuffed crust",
+          "halfAndHalf": true,
+          "includedAddons": [
+            "sujuq"
+          ],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 110000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 220000
+            }
+          ]
+        },
+        {
+          "key": "friends-pizza",
+          "nameAr": "بيتزا الأصدقاء",
+          "nameEn": "Friends Pizza",
+          "descAr": "بيبروني، سلامي، فطر، بندورة، فليفلة، زيتون، محشية جبنة و سجق",
+          "descEn": "Pepperoni, Salami, Mushrooms, Tomatoes, Peppers, Olives, Cheese and Sujuq stuffed crust",
+          "halfAndHalf": true,
+          "includedAddons": [
+            "cheese",
+            "sujuq"
+          ],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "caesars-pizza",
+          "nameAr": "بيتزا قيصر",
+          "nameEn": "Caesar's Pizza",
+          "descAr": "سلامي، حبش مدخن، خضار، بصل، محشية جبنة و سجق",
+          "descEn": "Salami, Smoked Turkey, Veggies, Onion, Sujuq and Cheese stuffed crust",
+          "halfAndHalf": true,
+          "includedAddons": [
+            "cheese",
+            "sujuq"
+          ],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "chico-pizza",
+          "nameAr": "بيتزا تشيكو",
+          "nameEn": "Chico Pizza",
+          "descAr": "سجق، خضار، بصل",
+          "descEn": "Sujuq Sausage, Veggies, Onion",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "سجق",
+              "en": "Sujuq Sausage"
+            },
+            {
+              "ar": "خضار",
+              "en": "Veggies"
+            },
+            {
+              "ar": "بصل",
+              "en": "Onion"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "milano-pizza",
+          "nameAr": "بيتزا ميلانو",
+          "nameEn": "Milano Pizza",
+          "descAr": "خضار، بيبروني، سلامي، هوت دوغ، محشية هوت دوغ",
+          "descEn": "Veggies, Pepperoni, Salami, Hot Dog, Hot Dog stuffed crust",
+          "halfAndHalf": true,
+          "includedAddons": [
+            "hotdog"
+          ],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "shish-pizza",
+          "nameAr": "بيتزا شيش",
+          "nameEn": "Shish Pizza",
+          "descAr": "صوص، جبنة، شيش",
+          "descEn": "Pizza Sauce, Cheese, Chicken",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "شيش",
+              "en": "Chicken"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        },
+        {
+          "key": "chicken-saut-ed-mushrooms-pizza",
+          "nameAr": "بيتزا دجاج فطر سوتيه",
+          "nameEn": "Chicken & Sautéed Mushrooms Pizza",
+          "descAr": "دجاج، فطر سوتيه",
+          "descEn": "Chicken, Sautéed Mushrooms",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "دجاج",
+              "en": "Chicken"
+            },
+            {
+              "ar": "فطر سوتيه",
+              "en": "Sautéed Mushrooms"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "chicken-shawarma-pizza",
+          "nameAr": "بيتزا شاورما دجاج",
+          "nameEn": "Chicken Shawarma Pizza",
+          "descAr": "صوص، جبنة، شاورما دجاج",
+          "descEn": "Pizza Sauce, Cheese, Chicken Shawarma",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "شاورما دجاج",
+              "en": "Chicken Shawarma"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        },
+        {
+          "key": "fajita-chicken-pizza",
+          "nameAr": "بيتزا فاهيتا دجاج",
+          "nameEn": "Fajita Chicken Pizza",
+          "descAr": "فاهيتا دجاج، فليفلة، فطر، ذرة",
+          "descEn": "Chicken Fajita, Green Peppers, Mushroom, Corn",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "فاهيتا دجاج",
+              "en": "Chicken Fajita"
+            },
+            {
+              "ar": "فليفلة",
+              "en": "Green Peppers"
+            },
+            {
+              "ar": "فطر",
+              "en": "Mushroom"
+            },
+            {
+              "ar": "ذرة",
+              "en": "Corn"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        },
+        {
+          "key": "mexican-chicken-pizza",
+          "nameAr": "بيتزا دجاج مكسيكي",
+          "nameEn": "Mexican Chicken Pizza",
+          "descAr": "صوص حار، جبنة، دجاج مكسيكي، ذرة، فليفلة",
+          "descEn": "Spicy Mexican Chicken, Corn, Green Pepper",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        },
+        {
+          "key": "chicken-sujuq-sausage-pizza",
+          "nameAr": "بيتزا سجق و دجاج",
+          "nameEn": "Chicken & Sujuq Sausage Pizza",
+          "descAr": "سجق، دجاج",
+          "descEn": "Chicken, Sujuq Sausage",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "سجق",
+              "en": "Chicken"
+            },
+            {
+              "ar": "دجاج",
+              "en": "Sujuq Sausage"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "bbq-chicken-pizza",
+          "nameAr": "بيتزا باربيكيو",
+          "nameEn": "BBQ Chicken Pizza",
+          "descAr": "صوص، جبنة، شيش، صوص الباربيكيو",
+          "descEn": "Pizza Sauce, Cheese, Shish, Barbecue Sauce",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "شيش",
+              "en": "Shish"
+            },
+            {
+              "ar": "صوص الباربيكيو",
+              "en": "Barbecue Sauce"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        },
+        {
+          "key": "mexicana-pizza",
+          "nameAr": "بيتزا مكسيكانا",
+          "nameEn": "Mexicana Pizza",
+          "descAr": "حبش مدخن، سجق، صوص حار، جبنة",
+          "descEn": "Smoked Turkey, Sujuq Sausage, Hot Sauce, Cheese",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "حبش مدخن",
+              "en": "Smoked Turkey"
+            },
+            {
+              "ar": "سجق",
+              "en": "Sujuq Sausage"
+            },
+            {
+              "ar": "صوص حار",
+              "en": "Hot Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 100000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 200000
+            }
+          ]
+        },
+        {
+          "key": "meat-lovers-pizza",
+          "nameAr": "بيتزا ميت لوفرز",
+          "nameEn": "Meat Lovers Pizza",
+          "descAr": "سلامي، مرتديلا، بيبروني، هوت دوغ",
+          "descEn": "Salami, Mortadella, Pepperoni, Hot Dog",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "سلامي",
+              "en": "Salami"
+            },
+            {
+              "ar": "مرتديلا",
+              "en": "Mortadella"
+            },
+            {
+              "ar": "بيبروني",
+              "en": "Pepperoni"
+            },
+            {
+              "ar": "هوت دوغ",
+              "en": "Hot Dog"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": null
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": null
+            }
+          ]
+        },
+        {
+          "key": "corn-pizza",
+          "nameAr": "بيتزا ذرة",
+          "nameEn": "Corn Pizza",
+          "descAr": "صوص، جبنة، ذرة",
+          "descEn": "Pizza Sauce, Cheese, Corn",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "ذرة",
+              "en": "Corn"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 75000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 150000
+            }
+          ]
+        },
+        {
+          "key": "tuna-pizza",
+          "nameAr": "بيتزا تونة",
+          "nameEn": "Tuna Pizza",
+          "descAr": "صوص، جبنة، تونة",
+          "descEn": "Pizza Sauce, Cheese, Tuna",
+          "halfAndHalf": true,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "تونة",
+              "en": "Tuna"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 90000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 180000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "calzones",
+      "nameAr": "كالزوني",
+      "nameEn": "Calzones",
+      "kind": "calzone",
+      "items": [
+        {
+          "key": "calzone-folded-pizza",
+          "nameAr": "بيتزا كالزوني",
+          "nameEn": "Calzone (Folded Pizza)",
+          "descAr": "صوص، جبنة، خضار",
+          "descEn": "Pizza Sauce, Cheese, Vegetables",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "خضار",
+              "en": "Vegetables"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 75000
+            }
+          ]
+        },
+        {
+          "key": "pepperoni-calzone-pizza",
+          "nameAr": "بيتزا كالزوني بيبروني",
+          "nameEn": "Pepperoni Calzone Pizza",
+          "descAr": "صوص، جبنة، بيبروني",
+          "descEn": "Pizza Sauce, Cheese, Pepperoni",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "بيبروني",
+              "en": "Pepperoni"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 90000
+            }
+          ]
+        },
+        {
+          "key": "salami-calzone-pizza",
+          "nameAr": "بيتزا كالزوني سلامي",
+          "nameEn": "Salami Calzone Pizza",
+          "descAr": "صوص، جبنة، سلامي",
+          "descEn": "Pizza Sauce, Cheese, Salami",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "سلامي",
+              "en": "Salami"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 90000
+            }
+          ]
+        },
+        {
+          "key": "shish-saut-calzone-pizza",
+          "nameAr": "بيتزا كالزوني شيش سوتيه",
+          "nameEn": "Shish Sauté Calzone Pizza",
+          "descAr": "صوص، جبنة، شيش، فطر سوتيه",
+          "descEn": "Pizza Sauce, Cheese, Shish, Sautéed Mushrooms",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [
+            {
+              "ar": "صوص",
+              "en": "Pizza Sauce"
+            },
+            {
+              "ar": "جبنة",
+              "en": "Cheese"
+            },
+            {
+              "ar": "شيش",
+              "en": "Shish"
+            },
+            {
+              "ar": "فطر سوتيه",
+              "en": "Sautéed Mushrooms"
+            }
+          ],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 100000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sides",
+      "nameAr": "المقبلات",
+      "nameEn": "Sides",
+      "kind": "other",
+      "items": [
+        {
+          "key": "french-fries",
+          "nameAr": "بطاطا مقلية",
+          "nameEn": "French Fries",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "regular",
+              "nameAr": "وسط",
+              "nameEn": "Regular",
+              "priceCents": 30000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبير",
+              "nameEn": "Large",
+              "priceCents": 40000
+            }
+          ]
+        },
+        {
+          "key": "baked-fries-cheese",
+          "nameAr": "بطاطا بالجبنة",
+          "nameEn": "Baked Fries & Cheese",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 45000
+            }
+          ]
+        },
+        {
+          "key": "baked-fries-cheese-with-saut-ed-mushroom",
+          "nameAr": "بطاطا بالجبنة مع فطر سوتيه",
+          "nameEn": "Baked Fries & Cheese with Sautéed Mushroom",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 55000
+            }
+          ]
+        },
+        {
+          "key": "baked-fries-cheese-with-shish",
+          "nameAr": "بطاطا بالجبنة و شيش",
+          "nameEn": "Baked Fries & Cheese with Shish",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 60000
+            }
+          ]
+        },
+        {
+          "key": "cheesy-fries-ranch",
+          "nameAr": "بطاطا بالجبنة و صوص الرانش",
+          "nameEn": "Cheesy Fries & Ranch",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 40000
+            }
+          ]
+        },
+        {
+          "key": "lasagna-with-garlic-bread",
+          "nameAr": "لازانيا مع توست محمص",
+          "nameEn": "Lasagna (with Garlic Bread)",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 60000
+            }
+          ]
+        },
+        {
+          "key": "cheesy-garlic-bread",
+          "nameAr": "توست محمص",
+          "nameEn": "Cheesy Garlic Bread",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 10000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "salads",
+      "nameAr": "السلطات",
+      "nameEn": "Salads",
+      "kind": "other",
+      "items": [
+        {
+          "key": "chicken-caesar-salad",
+          "nameAr": "سلطة سيزر مع دجاج مشوي",
+          "nameEn": "Chicken Caesar Salad",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 40000
+            }
+          ]
+        },
+        {
+          "key": "corn-salad",
+          "nameAr": "سلطة ذرة",
+          "nameEn": "Corn Salad",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "one",
+              "nameAr": "حجم واحد",
+              "nameEn": "One size",
+              "priceCents": 30000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "drinks",
+      "nameAr": "المشروبات",
+      "nameEn": "Drinks",
+      "kind": "other",
+      "items": [
+        {
+          "key": "soda",
+          "nameAr": "كولا",
+          "nameEn": "Soda",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "can",
+              "nameAr": "علبة",
+              "nameEn": "Can",
+              "priceCents": 10000
+            },
+            {
+              "sizeKey": "1l",
+              "nameAr": "ليتر",
+              "nameEn": "1 L",
+              "priceCents": 15000
+            }
+          ]
+        },
+        {
+          "key": "water",
+          "nameAr": "مياه",
+          "nameEn": "Water",
+          "descAr": "",
+          "descEn": "",
+          "halfAndHalf": false,
+          "includedAddons": [],
+          "removable": [],
+          "sizes": [
+            {
+              "sizeKey": "small",
+              "nameAr": "صغيرة",
+              "nameEn": "Small",
+              "priceCents": 4000
+            },
+            {
+              "sizeKey": "large",
+              "nameAr": "كبيرة",
+              "nameEn": "Large",
+              "priceCents": 8000
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "addons": [
+    {
+      "key": "cheese",
+      "group": "crust_stuffing",
+      "nameAr": "محشية الأطراف",
+      "nameEn": "Stuffed Crust (cheese)",
+      "prices": {
+        "regular": 20000,
+        "large": 40000
+      }
+    },
+    {
+      "key": "double_cheese",
+      "group": "extra",
+      "nameAr": "دبل جبنة",
+      "nameEn": "Double Cheese",
+      "prices": {
+        "regular": null,
+        "large": null
+      }
+    },
+    {
+      "key": "hotdog",
+      "group": "crust_stuffing",
+      "nameAr": "محشية هوت دوغ",
+      "nameEn": "Hot Dog Stuffed Crust",
+      "prices": {
+        "regular": null,
+        "large": null
+      }
+    },
+    {
+      "key": "sujuq",
+      "group": "crust_stuffing",
+      "nameAr": "محشية سجق",
+      "nameEn": "Sujuq Stuffed Crust",
+      "prices": {
+        "regular": null,
+        "large": null
+      }
+    }
+  ]
+}
