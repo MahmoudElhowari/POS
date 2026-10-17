@@ -1,9 +1,9 @@
 import type { PrintJob } from "@pos/db";
 import type { PrinterConfig } from "./config.js";
 import { imageJob } from "./escpos.js";
-import type { CustomerReceipt, KitchenTicket } from "@pos/shared";
+import type { CustomerReceipt, DayReportPaper, KitchenTicket } from "@pos/shared";
 import { renderTestTicket } from "./render.js";
-import { renderKitchenTicket, renderReceipt } from "./tickets.js";
+import { renderKitchenTicket, renderReceipt, renderReport } from "./tickets.js";
 import { sendToPrinter } from "./send.js";
 
 export interface StoreInfo {
@@ -26,6 +26,9 @@ export function jobBytes(job: PrintJob, printer: PrinterConfig, store: StoreInfo
       return imageJob(renderKitchenTicket(job.payload as KitchenTicket, store, printer.widthDots).bitmap, printer.bandRows);
     case "receipt":
       return imageJob(renderReceipt(job.payload as CustomerReceipt, store, printer.widthDots).bitmap, printer.bandRows);
+    case "x_report":
+    case "z_report":
+      return imageJob(renderReport(job.payload as DayReportPaper, store, printer.widthDots).bitmap, printer.bandRows);
     default:
       throw new Error(`unknown print job kind: ${job.kind}`);
   }

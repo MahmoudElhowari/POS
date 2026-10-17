@@ -271,7 +271,8 @@ export const orderLines = pgTable(
   (t) => [index("order_lines_order").on(t.orderId)],
 );
 
-export const orderEventKind = pgEnum("order_event_kind", ["sent", "discount", "delivery_fee", "payment", "void", "refund"]);
+/** "left_unpaid": a manager closed the day leaving this (non-delivery) order unpaid. */
+export const orderEventKind = pgEnum("order_event_kind", ["sent", "discount", "delivery_fee", "payment", "void", "refund", "left_unpaid"]);
 
 /**
  * Everything that happens to an order after it is sent. Money events carry an
@@ -291,9 +292,11 @@ export const orderEvents = pgTable(
     reason: text("reason"),
     note: text("note").notNull().default(""),
     data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+    /** The business day it counts on (Milestone 5); null on events from before days existed. */
+    dayId: uuid("day_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("order_events_order").on(t.orderId)],
+  (t) => [index("order_events_order").on(t.orderId), index("order_events_day").on(t.dayId)],
 );
 
 export const paymentMethod = pgEnum("payment_method", ["cash", "wallet"]);
@@ -331,6 +334,77 @@ export const settings = pgTable(
   (t) => [uniqueIndex("settings_key").on(t.tenantId, t.key)],
 );
 
+// ── Close of day (Milestone 5) ────────────────────────────────────────
+
+/**
+ * One store day per restaurant. It runs from when it opens until its Z, or
+ * until the automatic close (4 AM by default) if nobody runs one.
+ */
+export const businessDays = pgTable(
+  "business_days",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    date: date("date").notNull(),
+    openedAt: timestamp("opened_at", { withTimezone: true }).notNull(),
+    /** Cash left in the drawer for change, typed in by a manager. */
+    floatCents: integer("float_cents").notNull().default(0),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("business_days_date").on(t.tenantId, t.date),
+    // Only one open day per restaurant.
+    uniqueIndex("business_days_open").on(t.tenantId).where(sql`${t.closedAt} is null`),
+  ],
+);
+
+export const dayCloseKind = pgEnum("day_close_kind", ["manual", "automatic"]);
+
+export interface NoteCount {
+  pounds: number;
+  count: number;
+}
+
+/** A Z report. Insert-only: the report is frozen as it was when the day closed. */
+export const dayCloses = pgTable(
+  "day_closes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    /** Z 1, Z 2 … per restaurant. */
+    number: integer("number").notNull(),
+    dayId: uuid("day_id").notNull().references(() => businessDays.id),
+    kind: dayCloseKind("kind").notNull(),
+    floatCents: integer("float_cents").notNull(),
+    expectedCents: integer("expected_cents").notNull(),
+    /** Null when the day closed automatically without a count. */
+    countedCents: integer("counted_cents"),
+    differenceCents: integer("difference_cents"),
+    notes: jsonb("notes").$type<NoteCount[]>().notNull().default(sql`'[]'::jsonb`),
+    otherCents: integer("other_cents").notNull().default(0),
+    report: jsonb("report").notNull(),
+    closedBy: uuid("closed_by").references(() => staff.id),
+    closedAt: timestamp("closed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("day_closes_number").on(t.tenantId, t.number), uniqueIndex("day_closes_day").on(t.dayId)],
+);
+
+/** Who changed what outside order history: settings, staff, the float, day closes (rule 11). */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    staffId: uuid("staff_id").references(() => staff.id),
+    action: text("action").notNull(),
+    details: jsonb("details").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("audit_log_time").on(t.tenantId, t.createdAt)],
+);
+
+export type BusinessDay = typeof businessDays.$inferSelect;
+export type DayClose = typeof dayCloses.$inferSelect;
 export type Customer = typeof customers.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderLine = typeof orderLines.$inferSelect;

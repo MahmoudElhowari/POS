@@ -64,6 +64,7 @@ export function TodayOrders() {
                   <span className="text-sm text-neutral-600">
                     {t(`order.types.${o.type}`)}
                     {o.tableNo ? ` · ${t("order.table", { n: o.tableNo })}` : ""} · <bdi dir="ltr">{time(o.sentAt)}</bdi>
+                    {o.carried && <span className="ms-2 rounded bg-amber-100 px-1 font-semibold text-amber-900">{t("today.carried")}</span>}
                   </span>
                 </span>
                 <span className="font-semibold">

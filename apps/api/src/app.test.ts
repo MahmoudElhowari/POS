@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type AppDeps, createApp } from "./app.js";
 import { createLoginLimiter } from "./auth/limiter.js";
 import type { AuthStore, SessionStaff } from "./auth/store.js";
+import { DayRefused, type DayStore } from "./days.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { MenuStore } from "./menu/store.js";
 import type { MoneyStore } from "./orders/money.js";
@@ -97,6 +98,32 @@ function fakeSettings(): SettingsStore {
   return { all: async () => DEFAULT_SETTINGS, get: async (k) => DEFAULT_SETTINGS[k], update: async () => {} } as SettingsStore;
 }
 
+const dayCalls: unknown[][] = [];
+function fakeDays(): DayStore {
+  const record =
+    (name: string, result: unknown = undefined) =>
+    async (...args: unknown[]) => {
+      dayCalls.push([name, ...args]);
+      return result as never;
+    };
+  return {
+    x: record("x", { report: {} }),
+    printX: record("printX"),
+    setFloat: record("setFloat"),
+    leaveUnpaid: record("leaveUnpaid"),
+    close: async (...args: unknown[]) => {
+      dayCalls.push(["close", ...args]);
+      throw new DayRefused("unresolved", [{ id: "o-5", number: 5, customerName: "زبون", balanceCents: 100_000 }]);
+    },
+    closes: record("closes", []),
+    getClose: record("getClose", {}),
+    reprintZ: record("reprintZ"),
+    audit: record("audit", { entries: [] }),
+  } as unknown as DayStore;
+}
+
+const auditCalls: unknown[][] = [];
+
 let menuChanges = 0;
 
 async function call(method: string, path: string, opts: { deps?: Partial<AppDeps>; token?: string; body?: unknown } = {}) {
@@ -108,6 +135,8 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     auth: fakeAuth(),
     limiter: createLoginLimiter(),
     staff: fakeStaff(),
+    days: fakeDays(),
+    audit: { record: async (...args: unknown[]) => void auditCalls.push(args) },
     orders: fakeOrders(),
     money: fakeMoney(),
     settings: fakeSettings(),
@@ -320,5 +349,39 @@ describe("money", () => {
     expect((await call("GET", "/admin/settings", { token: "t-2222" })).status).toBe(403);
     expect(await (await call("GET", "/admin/settings", { token: "t-1111" })).json()).toMatchObject({ tax: { rateBp: 500 } });
     expect((await call("PATCH", "/admin/settings", { token: "t-1111", body: { tax: { rateBp: -1, nameAr: "x", nameEn: "" } } })).status).toBe(400);
+  });
+});
+
+describe("close of day", () => {
+  it("is for managers and admins, not cashiers", async () => {
+    expect((await call("GET", "/reports/x", { token: "t-2222" })).status).toBe(403);
+    expect((await call("GET", "/reports/x", { token: "t-3333" })).status).toBe(200);
+    expect((await call("GET", "/reports/x", { token: "t-1111" })).status).toBe(200);
+  });
+
+  it("takes the float in whole pounds", async () => {
+    expect((await call("PUT", "/reports/float", { token: "t-3333", body: { pounds: 12.5 } })).status).toBe(400);
+    expect((await call("PUT", "/reports/float", { token: "t-3333", body: { pounds: 500 } })).status).toBe(204);
+    expect(dayCalls.at(-1)).toEqual(["setFloat", 500, "s-man"]);
+  });
+
+  it("refuses a Z while orders are unresolved and says which", async () => {
+    const res = await call("POST", "/reports/z", { token: "t-3333", body: { dayId: "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11", notes: [{ pounds: 500, count: 3 }], otherPounds: 0 } });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "unresolved", orders: [{ id: "o-5", number: 5, customerName: "زبون", balanceCents: 100_000 }] });
+    expect((await call("POST", "/reports/z", { token: "t-3333", body: { dayId: "6f1c2c1e-2b1a-4c55-9a9e-0b1f9b6c1d11", notes: [{ pounds: 500, count: -1 }] } })).status).toBe(400);
+  });
+
+  it("logs settings and staff changes without the PIN", async () => {
+    await call("PATCH", "/admin/settings", { token: "t-1111", body: { tax: { rateBp: 500, nameAr: "ضريبة", nameEn: "Tax" } } });
+    expect(auditCalls.at(-1)).toEqual(["s-admin", "settings_changed", { tax: { rateBp: 500, nameAr: "ضريبة", nameEn: "Tax" } }]);
+    await call("PATCH", "/admin/staff/00000000-0000-4000-8000-000000000001", { token: "t-1111", body: { pin: "4321" } });
+    expect(auditCalls.at(-1)).toEqual(["s-admin", "staff_changed", { id: "00000000-0000-4000-8000-000000000001", pinChanged: true }]);
+    expect(JSON.stringify(auditCalls)).not.toContain("4321");
+  });
+
+  it("keeps the audit log for admins", async () => {
+    expect((await call("GET", "/admin/audit", { token: "t-3333" })).status).toBe(403);
+    expect((await call("GET", "/admin/audit", { token: "t-1111" })).status).toBe(200);
   });
 });

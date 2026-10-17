@@ -1,6 +1,7 @@
 import { and, desc, eq, like, sql } from "drizzle-orm";
 import { customers, type Db, heldOrders, orderEvents, orderLines, orders, printJobs } from "@pos/db";
 import { type DraftProblem, headerProblems, type OrderDraft, priceDraft } from "@pos/shared";
+import type { DayStore } from "../days.js";
 import type { MenuStore } from "../menu/store.js";
 import type { SettingsStore } from "../settings.js";
 import { kitchenTicket } from "./tickets.js";
@@ -45,7 +46,7 @@ const cleanPhone = (phone: string | undefined) => (phone ? phone.replace(/\s+/g,
  * Orders for one restaurant. Held orders are editable drafts; a sent order is
  * written once (order, lines, a "sent" event) and never updated.
  */
-export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, timeZone: string, settings: SettingsStore) {
+export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, days: DayStore, settings: SettingsStore) {
   /** Saves the customer by phone so the next order can find them. Returns their id. */
   async function rememberCustomer(tx: Tx, draft: OrderDraft): Promise<string | null> {
     const phone = cleanPhone(draft.customer.phone);
@@ -125,19 +126,18 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, time
         }
         const customerId = await rememberCustomer(tx, draft);
 
-        // One sender at a time per restaurant, so daily numbers never clash.
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`orders:${tenantId}`}))`);
-        const today = sql`(now() at time zone ${timeZone})::date`;
+        // One sender at a time per restaurant (the day lock), so daily numbers never clash.
+        const day = await days.ensureOpen(tx);
         const [next] = await tx
-          .select({ n: sql<number>`coalesce(max(${orders.number}), 0)::int + 1`, day: sql<string>`${today}::text` })
+          .select({ n: sql<number>`coalesce(max(${orders.number}), 0)::int + 1` })
           .from(orders)
-          .where(and(eq(orders.tenantId, tenantId), eq(orders.businessDate, today)));
+          .where(and(eq(orders.tenantId, tenantId), eq(orders.businessDate, day.date)));
 
         const [order] = await tx
           .insert(orders)
           .values({
             tenantId,
-            businessDate: next!.day,
+            businessDate: day.date,
             number: next!.n,
             type: draft.type,
             tableNo: draft.type === "dine_in" ? (draft.tableNo ?? null) : null,
@@ -186,7 +186,7 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, time
             };
           }),
         ).returning();
-        await tx.insert(orderEvents).values({ tenantId, orderId: order!.id, kind: "sent", staffId });
+        await tx.insert(orderEvents).values({ tenantId, orderId: order!.id, kind: "sent", staffId, dayId: day.id });
         // The kitchen ticket goes through the queue (rule 4); NOTIFY fires on commit.
         await tx.insert(printJobs).values({ tenantId, printer: "kitchen", kind: "kitchen", payload: kitchenTicket(order!, lines, false) });
         await tx.execute(sql`select pg_notify('print_jobs', ${tenantId})`);

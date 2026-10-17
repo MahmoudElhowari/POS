@@ -7,6 +7,7 @@ import type { CustomerReceipt, KitchenTicket, OrderDraft } from "@pos/shared";
 import { createAuthStore } from "../auth/store.js";
 import { createMenuStore } from "../menu/store.js";
 import { menuSeed } from "../menu/types.js";
+import { createDayStore } from "../days.js";
 import { createSettingsStore } from "../settings.js";
 import { createMoneyStore, MoneyRefused } from "./money.js";
 import { createOrderStore } from "./store.js";
@@ -28,8 +29,9 @@ describe.skipIf(!url)("money store (Postgres)", () => {
     await auth.ensureInitialAdmin("1234");
     const { staff } = (await auth.login("1234"))!;
     const settings = createSettingsStore(db, tenantId);
-    const store = createOrderStore(db, tenantId, menu, "Asia/Damascus", settings);
-    const money = createMoneyStore(db, tenantId, "Asia/Damascus", settings);
+    const days = createDayStore(db, tenantId, "Asia/Damascus", settings);
+    const store = createOrderStore(db, tenantId, menu, days, settings);
+    const money = createMoneyStore(db, tenantId, days, settings);
     const all = (await menu.adminMenu()).categories.flatMap((c) => c.items);
     const item = (nameEn: string) => all.find((i) => i.nameEn === nameEn)!.id;
     const draft: OrderDraft = {

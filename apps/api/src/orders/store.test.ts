@@ -7,6 +7,7 @@ import type { OrderDraft } from "@pos/shared";
 import { createStaffStore, StaffRefused } from "../auth/staff.js";
 import { createAuthStore } from "../auth/store.js";
 import { createMenuStore } from "../menu/store.js";
+import { createDayStore } from "../days.js";
 import { createSettingsStore } from "../settings.js";
 import { menuSeed } from "../menu/types.js";
 import { createOrderStore, OrderRefused } from "./store.js";
@@ -26,7 +27,8 @@ describe.skipIf(!url)("order store (Postgres)", () => {
     const auth = createAuthStore(db, tenantId);
     await auth.ensureInitialAdmin("1234");
     const { staff } = (await auth.login("1234"))!;
-    const store = createOrderStore(db, tenantId, menu, "Asia/Damascus", createSettingsStore(db, tenantId));
+    const settings = createSettingsStore(db, tenantId);
+    const store = createOrderStore(db, tenantId, menu, createDayStore(db, tenantId, "Asia/Damascus", settings), settings);
     const all = (await menu.adminMenu()).categories.flatMap((c) => c.items);
     const item = (nameEn: string) => all.find((i) => i.nameEn === nameEn)!;
     return { tenantId, menu, store, staffId: staff.staffId, item };
@@ -72,8 +74,9 @@ describe.skipIf(!url)("order store (Postgres)", () => {
     const b = await fresh.store.send(pizzaOrder(fresh), fresh.staffId, PIZZA_TOTAL);
     expect([a.number, b.number]).toEqual([1, 2]);
 
-    // Pretend both were sent yesterday: today's numbering starts at 1 again.
+    // Pretend the day began yesterday and nobody ran a Z: it closes at 4 AM and numbering starts at 1 again.
     await db.execute(sql`update orders set business_date = business_date - 1 where tenant_id = ${fresh.tenantId}`);
+    await db.execute(sql`update business_days set date = date - 1, opened_at = opened_at - interval '1 day' where tenant_id = ${fresh.tenantId}`);
     expect((await fresh.store.send(pizzaOrder(fresh), fresh.staffId, PIZZA_TOTAL)).number).toBe(1);
   });
 
