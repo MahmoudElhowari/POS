@@ -33,12 +33,14 @@ export function PinPad({ onSignedIn }: { onSignedIn: (token: string, staff: Staf
     }
   }
 
-  const key = (label: string, onClick: () => void, extra = "") => (
+  // Both background classes in one className would conflict, so the tone
+  // picks exactly one.
+  const key = (label: string, onClick: () => void, extra = "", tone = "bg-white active:bg-neutral-200") => (
     <button
       key={label}
       type="button"
       onClick={onClick}
-      className={`min-h-16 rounded-2xl bg-white text-2xl font-bold shadow-sm active:bg-neutral-200 ${extra}`}
+      className={`min-h-16 rounded-2xl text-2xl font-bold shadow-sm ${tone} ${extra}`}
     >
       {label}
     </button>
@@ -57,7 +59,7 @@ export function PinPad({ onSignedIn }: { onSignedIn: (token: string, staff: Staf
         {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => key(d, () => setPin((p) => (p.length < 6 ? p + d : p))))}
         {key(t("pin.clear"), () => setPin(""), "text-lg")}
         {key("0", () => setPin((p) => (p.length < 6 ? `${p}0` : p)))}
-        {key(t("pin.enter"), submit, "bg-red-700 text-lg text-white active:bg-red-800")}
+        {key(t("pin.enter"), submit, "text-lg text-white", "bg-red-700")}
       </div>
     </section>
   );
