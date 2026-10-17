@@ -1,0 +1,55 @@
+# Runs the whole in-store system: docker compose up --build
+# Images are built in Calgary and loaded on the store mini PC (no downloads in the store).
+x-env: &env
+  env_file:
+    - path: .env
+      required: false
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    <<: *env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-pos}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    <<: *env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pos}
+      PRINTER_SERVICE_URL: http://printer:3100
+    depends_on:
+      postgres: { condition: service_healthy }
+    ports:
+      - "${API_PORT:-3000}:3000"
+    restart: unless-stopped
+
+  printer:
+    build: { context: ., dockerfile: apps/printer/Dockerfile }
+    <<: *env
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-pos}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-pos}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
