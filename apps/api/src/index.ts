@@ -10,8 +10,10 @@ import { createStaffStore } from "./auth/staff.js";
 import { createAuthStore } from "./auth/store.js";
 import { createMenuStore } from "./menu/store.js";
 import { menuSeed } from "./menu/types.js";
+import { createMoneyStore } from "./orders/money.js";
 import { createOrderStore } from "./orders/store.js";
 import { createPrintStore } from "./prints.js";
+import { createSettingsStore } from "./settings.js";
 
 const port = Number(process.env.API_PORT ?? 3000);
 const tenantId = process.env.TENANT_ID ?? "romantica";
@@ -33,6 +35,7 @@ for (;;) {
 
 const menu = createMenuStore(db, tenantId);
 const auth = createAuthStore(db, tenantId);
+const settings = createSettingsStore(db, tenantId);
 
 // First start in a new store: load the menu file and create the admin.
 if (await menu.isEmpty()) {
@@ -63,7 +66,9 @@ const app = createApp({
   auth,
   limiter: createLoginLimiter(),
   staff: createStaffStore(db, tenantId),
-  orders: createOrderStore(db, tenantId, menu, timeZone),
+  orders: createOrderStore(db, tenantId, menu, timeZone, settings),
+  money: createMoneyStore(db, tenantId, timeZone, settings),
+  settings,
   menuChanged: () => io.emit("menu.changed"),
 });
 

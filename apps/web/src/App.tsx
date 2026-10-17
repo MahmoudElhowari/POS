@@ -6,9 +6,11 @@ import { useIdleLock } from "./admin/useIdleLock";
 import { api, setSession, type Staff } from "./api";
 import { OrderScreen } from "./order/OrderScreen";
 import { PrinterTest } from "./PrinterTest";
+import { TodayOrders } from "./today/TodayOrders";
 
-type Route = "order" | "menu" | "printer";
-const routeFromHash = (): Route => (window.location.hash === "#/printer" ? "printer" : window.location.hash === "#/menu" ? "menu" : "order");
+type Route = "order" | "today" | "menu" | "printer";
+const ROUTES: Route[] = ["order", "today", "menu", "printer"];
+const routeFromHash = (): Route => ROUTES.find((r) => window.location.hash === `#/${r}`) ?? "order";
 
 const IDLE_LOCK_MS = 10 * 60_000;
 const STORAGE_KEY = "pos.session";
@@ -63,7 +65,7 @@ export function App() {
   // The next person signs in with their own PIN.
   useIdleLock(staff !== null, IDLE_LOCK_MS, signOut);
 
-  const routes: Route[] = staff?.role === "admin" ? ["order", "menu", "printer"] : ["order", "printer"];
+  const routes: Route[] = staff?.role === "admin" ? ["order", "today", "menu", "printer"] : ["order", "today", "printer"];
 
   let screen;
   if (route === "printer") screen = <PrinterTest />;
@@ -80,6 +82,7 @@ export function App() {
     );
   else if (route === "menu" && staff.role !== "admin") screen = <p className="rounded-xl bg-red-100 p-4 text-red-900">{t("pin.forbidden")}</p>;
   else if (route === "menu") screen = <AdminScreen />;
+  else if (route === "today") screen = <TodayOrders />;
   else screen = <OrderScreen />;
 
   return (

@@ -38,6 +38,17 @@ export function createAuthStore(db: Db, tenantId: string) {
       return null;
     },
 
+    /** The manager or admin with this PIN, for approving a discount; no session is made. */
+    async approver(pin: string): Promise<SessionStaff | null> {
+      const people = await db.select().from(staff).where(and(eq(staff.tenantId, tenantId), eq(staff.active, true)));
+      for (const person of people) {
+        if ((person.role === "manager" || person.role === "admin") && (await verifyPin(pin, person.pinHash))) {
+          return { staffId: person.id, name: person.name, role: person.role };
+        }
+      }
+      return null;
+    },
+
     /** Looks up a live session and slides its idle timer forward. */
     async session(token: string): Promise<SessionStaff | null> {
       const cutoff = new Date(Date.now() - IDLE_TIMEOUT_MS);

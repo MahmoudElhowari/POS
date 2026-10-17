@@ -39,10 +39,11 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Start the stack with the fake printer
+      - name: Start the stack with the fake printers
         run: |
           cp .env.example .env
           sed -i 's/^RECEIPT_PRINTER_HOST=.*/RECEIPT_PRINTER_HOST=fake-printer/' .env
+          sed -i 's/^KITCHEN_PRINTER_HOST=.*/KITCHEN_PRINTER_HOST=fake-kitchen-printer/' .env
           docker compose --profile dev up -d --build
           for i in $(seq 1 60); do curl -sf localhost:8080/api/health && break; sleep 2; done
       - run: pnpm --filter @pos/e2e exec playwright install --with-deps chromium

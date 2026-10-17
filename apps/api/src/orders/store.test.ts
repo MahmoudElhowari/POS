@@ -7,6 +7,7 @@ import type { OrderDraft } from "@pos/shared";
 import { createStaffStore, StaffRefused } from "../auth/staff.js";
 import { createAuthStore } from "../auth/store.js";
 import { createMenuStore } from "../menu/store.js";
+import { createSettingsStore } from "../settings.js";
 import { menuSeed } from "../menu/types.js";
 import { createOrderStore, OrderRefused } from "./store.js";
 
@@ -25,7 +26,7 @@ describe.skipIf(!url)("order store (Postgres)", () => {
     const auth = createAuthStore(db, tenantId);
     await auth.ensureInitialAdmin("1234");
     const { staff } = (await auth.login("1234"))!;
-    const store = createOrderStore(db, tenantId, menu, "Asia/Damascus");
+    const store = createOrderStore(db, tenantId, menu, "Asia/Damascus", createSettingsStore(db, tenantId));
     const all = (await menu.adminMenu()).categories.flatMap((c) => c.items);
     const item = (nameEn: string) => all.find((i) => i.nameEn === nameEn)!;
     return { tenantId, menu, store, staffId: staff.staffId, item };

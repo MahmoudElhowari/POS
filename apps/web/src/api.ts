@@ -1,4 +1,4 @@
-import type { DraftProblem, OrderDraft } from "@pos/shared";
+import type { DraftProblem, OrderDraft, OrderTotals, OrderType } from "@pos/shared";
 
 export type JobStatus = "queued" | "printing" | "done" | "failed";
 
@@ -13,6 +13,8 @@ export interface PrinterStatus {
   host: string | null;
   port: number | null;
   online: boolean;
+  /** The kitchen printer; the fields above are the receipt printer. */
+  kitchen?: { host: string | null; port: number | null; online: boolean };
 }
 
 export interface Staff {
@@ -134,6 +136,61 @@ export interface CustomerMatch {
   directions: string;
 }
 
+export interface OrderSummary {
+  id: string;
+  number: number;
+  type: OrderType;
+  tableNo: number | null;
+  customerName: string;
+  sentAt: string;
+  totals: OrderTotals;
+}
+
+export interface OrderLineView {
+  id: string;
+  lineNo: number;
+  qty: number;
+  nameAr: string;
+  sizeKey: string;
+  sizeNameAr: string;
+  otherHalfNameAr: string | null;
+  addons: { key: string; nameAr: string }[];
+  removals: { ar: string }[];
+  note: string;
+  totalCents: number;
+}
+
+export interface OrderEventView {
+  id: string;
+  kind: "sent" | "discount" | "delivery_fee" | "payment" | "void" | "refund";
+  amountCents: number | null;
+  staffName: string;
+  approvedByName: string | null;
+  reason: string | null;
+  note: string;
+  createdAt: string;
+}
+
+export interface OrderDetail extends OrderSummary {
+  customerPhone: string | null;
+  deliveryArea: string;
+  deliveryDirections: string;
+  note: string;
+  taxRateBp: number;
+  /** The tax's name today, for the "includes" line. */
+  taxNameAr: string;
+  lines: OrderLineView[];
+  history: OrderEventView[];
+}
+
+export const VOID_REASONS = ["customer_cancelled", "wrong_order", "other"] as const;
+export type VoidReason = (typeof VOID_REASONS)[number];
+
+export interface Settings {
+  tax: { rateBp: number; nameAr: string; nameEn: string };
+  receipt: { phone: string; address: string; footer: string };
+}
+
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -158,7 +215,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`/api${path}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   if (res.status === 401 && token) onSignedOut();
   if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
-  return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
+  // 204, and a 202 with nothing to say (a reprint), have no body.
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {
@@ -172,6 +231,14 @@ export const api = {
   me: () => request<Staff>("GET", "/auth/me"),
 
   adminMenu: () => request<AdminMenu>("GET", "/admin/menu"),
+  createItem: (input: {
+    categoryId: string;
+    nameAr: string;
+    nameEn: string;
+    descAr: string;
+    descEn: string;
+    sizes: { sizeKey: string; nameAr: string; nameEn: string; pricePounds: number | null }[];
+  }) => request<{ id: string }>("POST", "/admin/items", input),
   updateItem: (id: string, patch: Partial<Omit<AdminItem, "id" | "sizes">>) => request<void>("PATCH", `/admin/items/${id}`, patch),
   updateSize: (id: string, patch: { pricePounds?: number | null; available?: boolean }) => request<void>("PATCH", `/admin/sizes/${id}`, patch),
   updateAddon: (id: string, patch: { available?: boolean }) => request<void>("PATCH", `/admin/addons/${id}`, patch),
@@ -191,4 +258,18 @@ export const api = {
   send: (draft: OrderDraft, expectedTotalCents: number, heldId?: string) =>
     request<SentOrder>("POST", "/orders/send", { draft, expectedTotalCents, heldId }),
   customers: (phone: string) => request<CustomerMatch[]>("GET", `/customers?phone=${encodeURIComponent(phone)}`),
+
+  todayOrders: () => request<OrderSummary[]>("GET", "/orders/today"),
+  order: (id: string) => request<OrderDetail>("GET", `/orders/${id}`),
+  discount: (id: string, amount: { percentBp: number } | { amountPounds: number }, managerPin: string) =>
+    request<OrderTotals>("POST", `/orders/${id}/discount`, { ...amount, managerPin }),
+  deliveryFee: (id: string, amountPounds: number) => request<OrderTotals>("POST", `/orders/${id}/delivery-fee`, { amountPounds }),
+  payCash: (id: string, tenderedPounds: number) =>
+    request<{ totals: OrderTotals; changeCents: number }>("POST", `/orders/${id}/pay`, { tenderedPounds }),
+  voidOrder: (id: string, reason: VoidReason, note: string) => request<OrderTotals>("POST", `/orders/${id}/void`, { reason, note }),
+  refund: (id: string, reason: VoidReason, note: string) => request<OrderTotals>("POST", `/orders/${id}/refund`, { reason, note }),
+  reprint: (id: string, which: "kitchen" | "receipt") => request<void>("POST", `/orders/${id}/reprint`, { which }),
+
+  settings: () => request<Settings>("GET", "/admin/settings"),
+  updateSettings: (patch: Partial<Settings>) => request<Settings>("PATCH", "/admin/settings", patch),
 };

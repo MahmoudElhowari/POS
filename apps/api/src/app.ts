@@ -6,14 +6,18 @@ import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { AuthStore, Role, SessionStaff } from "./auth/store.js";
 import { NotFound, type MenuStore } from "./menu/store.js";
 import { addonPatch, addonPricePatch, bulkRequest, itemPatch, newItem, sizePatch } from "./menu/types.js";
+import { MoneyRefused, type MoneyStore, VOID_REASONS } from "./orders/money.js";
 import { OrderRefused, type OrderStore } from "./orders/store.js";
 import { holdRequest, sendRequest } from "./orders/types.js";
 import type { PrintStore } from "./prints.js";
+import { settingsPatch, type SettingsStore } from "./settings.js";
 
 export interface PrinterStatus {
   host: string | null;
   port: number | null;
   online: boolean;
+  /** The kitchen printer; the fields above are the receipt printer. */
+  kitchen?: { host: string | null; port: number | null; online: boolean };
 }
 
 export interface AppDeps {
@@ -25,6 +29,8 @@ export interface AppDeps {
   limiter: LoginLimiter;
   staff: StaffStore;
   orders: OrderStore;
+  money: MoneyStore;
+  settings: SettingsStore;
   /** Tells order screens to reload the menu (Socket.IO in production). */
   menuChanged: () => void;
 }
@@ -34,6 +40,12 @@ const staffInput = z.object({
   role: z.enum(["admin", "manager", "cashier"]),
   pin: z.string().regex(PIN_PATTERN),
 });
+const wholePounds = z.number().int().min(0).max(100_000_000);
+const discountRequest = z.union([
+  z.object({ percentBp: z.number().int().min(1).max(10_000), managerPin: z.string().regex(PIN_PATTERN) }),
+  z.object({ amountPounds: wholePounds.min(1), managerPin: z.string().regex(PIN_PATTERN) }),
+]);
+const voidRequest = z.object({ reason: z.enum(VOID_REASONS), note: z.string().trim().max(200).default("") });
 const staffPatch = staffInput.partial().extend({ active: z.boolean().optional() });
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -134,7 +146,7 @@ export function createApp(deps: AppDeps) {
   admin.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
   // Any successful menu change reaches the order screens straight away.
   admin.use((req, res, next) => {
-    if (req.method !== "GET" && !req.path.startsWith("/staff")) {
+    if (req.method !== "GET" && !req.path.startsWith("/staff") && !req.path.startsWith("/settings")) {
       res.on("finish", () => {
         if (res.statusCode < 300 && !req.path.endsWith("/preview")) deps.menuChanged();
       });
@@ -196,6 +208,15 @@ export function createApp(deps: AppDeps) {
     res.status(found ? 204 : 404).end();
   });
 
+  admin.get("/settings", async (_req, res) => {
+    res.json(await deps.settings.all());
+  });
+
+  admin.patch("/settings", async (req, res) => {
+    await deps.settings.update(defined(settingsPatch.parse(req.body)), req.staff!.staffId);
+    res.json(await deps.settings.all());
+  });
+
   app.use("/admin", admin);
 
   // ── Orders (Milestone 3) ──
@@ -221,10 +242,53 @@ export function createApp(deps: AppDeps) {
     res.status(201).json(await deps.orders.send(draft, req.staff!.staffId, expectedTotalCents, heldId));
   });
 
+  orders.get("/today", async (_req, res) => {
+    res.json(await deps.money.today());
+  });
+
   orders.get("/:id", async (req, res) => {
-    const order = await deps.orders.get(req.params.id!);
-    if (!order) return void res.status(404).json({ error: "not_found" });
-    res.json(order);
+    res.json(await deps.money.detail(req.params.id!));
+  });
+
+  // ── Money (Milestone 4) ──
+  orders.post("/:id/discount", async (req, res) => {
+    const { managerPin, ...amount } = discountRequest.parse(req.body);
+    const client = req.ip ?? "unknown";
+    const wait = deps.limiter.lockedFor(client);
+    if (wait > 0) return void res.status(429).json({ error: "locked", retryAfterMs: wait });
+    const manager = await deps.auth.approver(managerPin);
+    if (!manager) {
+      deps.limiter.fail(client);
+      return void res.status(403).json({ error: "not_approver" });
+    }
+    deps.limiter.succeed(client);
+    res.json(await deps.money.discount(req.params.id!, amount, req.staff!.staffId, manager.staffId));
+  });
+
+  orders.post("/:id/delivery-fee", async (req, res) => {
+    const { amountPounds } = z.object({ amountPounds: wholePounds }).parse(req.body);
+    res.json(await deps.money.deliveryFee(req.params.id!, amountPounds, req.staff!.staffId));
+  });
+
+  orders.post("/:id/pay", async (req, res) => {
+    const { tenderedPounds } = z.object({ tenderedPounds: wholePounds.min(1) }).parse(req.body);
+    res.json(await deps.money.payCash(req.params.id!, tenderedPounds, req.staff!.staffId));
+  });
+
+  orders.post("/:id/void", async (req, res) => {
+    const { reason, note } = voidRequest.parse(req.body);
+    res.json(await deps.money.void(req.params.id!, reason, note, req.staff!.staffId));
+  });
+
+  orders.post("/:id/refund", async (req, res) => {
+    const { reason, note } = voidRequest.parse(req.body);
+    res.json(await deps.money.refund(req.params.id!, reason, note, req.staff!.staffId));
+  });
+
+  orders.post("/:id/reprint", async (req, res) => {
+    const { which } = z.object({ which: z.enum(["kitchen", "receipt"]) }).parse(req.body);
+    await deps.money.reprint(req.params.id!, which);
+    res.status(202).end();
   });
 
   app.use("/orders", orders);
@@ -238,6 +302,7 @@ export function createApp(deps: AppDeps) {
     if (err instanceof z.ZodError) return void res.status(400).json({ error: "invalid", issues: err.issues });
     if (err instanceof NotFound) return void res.status(404).json({ error: "not_found" });
     if (err instanceof StaffRefused) return void res.status(409).json({ error: err.code });
+    if (err instanceof MoneyRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof OrderRefused) return void res.status(409).json({ error: err.code, ...err.detail });
     console.error(err);
     res.status(500).json({ error: "server_error" });

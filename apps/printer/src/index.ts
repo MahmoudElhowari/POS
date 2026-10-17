@@ -1,13 +1,13 @@
 import { createServer } from "node:http";
 import { createDb, runMigrations } from "@pos/db";
-import { readPrinterConfig } from "./config.js";
+import { PRINTERS, readPrinters } from "./config.js";
 import { makePrinter } from "./jobs.js";
 import { probePrinter } from "./send.js";
 import { startWorker } from "./worker.js";
 
 const port = Number(process.env.PRINTER_SERVICE_PORT ?? 3100);
 const tenantId = process.env.TENANT_ID ?? "romantica";
-const printer = readPrinterConfig();
+const printers = readPrinters();
 const store = {
   restaurantAr: process.env.RESTAURANT_NAME_AR ?? "رومانتيكا بيتزا",
   restaurantEn: process.env.RESTAURANT_NAME_EN ?? "Romantica Pizza",
@@ -29,7 +29,8 @@ async function migrateWhenReady() {
 }
 
 await migrateWhenReady();
-const worker = startWorker({ pool, tenantId, print: makePrinter(printer, store) });
+// One worker per printer, so a jammed kitchen printer never holds up receipts.
+const workers = PRINTERS.map((name) => startWorker({ pool, tenantId, printer: name, print: makePrinter(printers[name], store) }));
 
 const server = createServer(async (req, res) => {
   const json = (status: number, body: unknown) => {
@@ -38,16 +39,22 @@ const server = createServer(async (req, res) => {
   };
   if (req.method === "GET" && req.url === "/health") return json(200, { service: "printer", ok: true });
   if (req.method === "GET" && req.url === "/status") {
-    const online = await probePrinter(printer.host, printer.port);
-    return json(200, { host: printer.host, port: printer.port, online });
+    const [receipt, kitchen] = await Promise.all(
+      PRINTERS.map(async (name) => {
+        const { host, port } = printers[name];
+        return { host, port, online: await probePrinter(host, port) };
+      }),
+    );
+    // The receipt printer stays at the top level for the printer test screen.
+    return json(200, { ...receipt, kitchen });
   }
   res.writeHead(404).end();
-}).listen(port, () => console.log(`printer service listening on :${port}, printer ${printer.host}:${printer.port}`));
+}).listen(port, () => console.log(`printer service listening on :${port}, receipt ${printers.receipt.host}:${printers.receipt.port}, kitchen ${printers.kitchen.host}:${printers.kitchen.port}`));
 
 for (const signal of ["SIGTERM", "SIGINT"] as const) {
   process.once(signal, async () => {
     server.close();
-    await worker.stop();
+    await Promise.all(workers.map((w) => w.stop()));
     await pool.end();
     process.exit(0);
   });

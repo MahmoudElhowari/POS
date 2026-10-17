@@ -3,6 +3,7 @@
   "printerTest": {
     "title": "Printer test",
     "printer": "Receipt printer",
+    "kitchen": "Kitchen printer",
     "online": "Online",
     "offline": "Offline",
     "checking": "Checking…",
@@ -22,7 +23,8 @@
     "menu": "Menu",
     "printer": "Printer test",
     "signOut": "Sign out",
-    "order": "Orders"
+    "order": "New order",
+    "today": "Today's orders"
   },
   "pin": {
     "title": "Enter your PIN",
@@ -38,7 +40,8 @@
       "items": "Items",
       "addons": "Add-ons",
       "bulk": "Bulk prices",
-      "staff": "Staff"
+      "staff": "Staff",
+      "settings": "Settings"
     },
     "currency": "SYP",
     "noPrice": "No price",
@@ -84,6 +87,17 @@
     "sizes": {
       "regular": "Regular",
       "large": "Large"
+    },
+    "add": {
+      "button": "+ Add item",
+      "title": "New item in {{category}}",
+      "needName": "Enter the Arabic name",
+      "hint": "An item without a price stays hidden from the order screen",
+      "save": "Add",
+      "sizes": {
+        "two": "Regular and large",
+        "one": "One size"
+      }
     }
   },
   "staff": {
@@ -170,5 +184,120 @@
       "bad_removal": "Invalid change on line {{line}}",
       "pricing": "Line {{line}} cannot be priced"
     }
+  },
+  "today": {
+    "empty": "No orders yet",
+    "filters": {
+      "all": "All",
+      "open": "Unpaid",
+      "paid": "Paid",
+      "cancelled": "Voided and refunded"
+    },
+    "status": {
+      "unpaid": "Unpaid",
+      "part_paid": "Part paid",
+      "paid": "Paid",
+      "voided": "Voided",
+      "refunded": "Refunded"
+    },
+    "number": "Order {{number}}",
+    "pick": "Pick an order to see it",
+    "history": "History",
+    "kinds": {
+      "sent": "Sent to kitchen",
+      "discount": "Discount",
+      "delivery_fee": "Delivery fee",
+      "payment": "Cash payment",
+      "void": "Void",
+      "refund": "Refund"
+    },
+    "approvedBy": "approved by {{name}}",
+    "pay": "Pay",
+    "reprintKitchen": "Reprint kitchen ticket",
+    "reprintReceipt": "Reprint receipt",
+    "reprinted": "Sent to the printer",
+    "void": "Void order",
+    "refund": "Refund",
+    "phone": "Phone",
+    "area": "Area",
+    "directions": "Address",
+    "note": "Note",
+    "close": "Close"
+  },
+  "pay": {
+    "title": "Pay · order {{number}}",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "deliveryFee": "Delivery fee",
+    "total": "Total",
+    "taxIncluded": "Includes {{name}} {{rate}}%: {{amount}} SYP",
+    "paid": "Paid",
+    "due": "Due",
+    "feeLabel": "Delivery fee (SYP)",
+    "applyFee": "Apply",
+    "addDiscount": "Discount (manager approval)",
+    "tendered": "Cash received",
+    "clear": "Clear",
+    "payCash": "Pay cash",
+    "change": "Change to give",
+    "paidTitle": "Paid",
+    "receiptPrinting": "The receipt is printing",
+    "stillDue": "{{amount}} SYP still due",
+    "later": "Pay later",
+    "done": "Done",
+    "errors": {
+      "not_found": "Order not found",
+      "voided": "The order is voided",
+      "refunded": "This order was refunded",
+      "paid": "The order is fully paid",
+      "has_payments": "The discount and delivery fee cannot change after a payment",
+      "not_paid": "Nothing has been paid to refund",
+      "not_delivery": "Delivery fees are for delivery orders only",
+      "too_much": "The discount is more than the order",
+      "bad_amount": "Type a valid amount",
+      "not_approver": "Wrong manager PIN",
+      "locked": "Too many tries, wait a moment",
+      "server": "Could not reach the server"
+    }
+  },
+  "discount": {
+    "title": "Order discount",
+    "hint": "Needs a manager or admin PIN",
+    "percent": "Percent %",
+    "amount": "Amount SYP",
+    "value": "Discount",
+    "managerPin": "Manager PIN",
+    "apply": "Apply discount",
+    "cancel": "Back"
+  },
+  "reason": {
+    "voidTitle": "Void order {{number}}",
+    "refundTitle": "Refund {{amount}} SYP for order {{number}}",
+    "choose": "Reason",
+    "reasons": {
+      "customer_cancelled": "Customer cancelled",
+      "wrong_order": "Wrong order",
+      "other": "Other"
+    },
+    "note": "Note (optional)",
+    "confirmVoid": "Void it",
+    "confirmRefund": "Refund it",
+    "back": "Back"
+  },
+  "settings": {
+    "tax": "Tax",
+    "taxRate": "Tax rate %",
+    "taxNameAr": "Tax name in Arabic",
+    "taxNameEn": "Tax name in English",
+    "taxHint": "Tax is included in prices and only shown on the receipt. Changes apply to new orders.",
+    "receipt": "Receipt",
+    "phone": "Phone number",
+    "address": "Address",
+    "footer": "Last line of the receipt",
+    "footerHint": "Left empty, it prints «شكراً لزيارتكم»",
+    "save": "Save",
+    "saved": "Saved",
+    "bad": "Check the tax rate (0 to 50) and its name",
+    "error": "Could not save"
   }
 }

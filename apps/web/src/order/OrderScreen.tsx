@@ -5,6 +5,7 @@ import { ApiError, api, type HeldOrder, type MenuItem } from "../api";
 import { pounds } from "../format";
 import { CustomerBox } from "./CustomerBox";
 import { HeldOrders } from "./HeldOrders";
+import { PayDialog } from "../today/PayDialog";
 import { ItemSheet } from "./ItemSheet";
 import { useLiveMenu } from "./useLiveMenu";
 
@@ -49,6 +50,8 @@ export function OrderScreen() {
   const [showHeld, setShowHeld] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [busy, setBusy] = useState(false);
+  // Pickup and delivery customers usually pay at the counter; "pay later" closes it.
+  const [paying, setPaying] = useState<string | null>(null);
 
   const loadHeld = useCallback(async () => setHeld(await api.heldOrders().catch(() => [])), []);
   useEffect(() => {
@@ -139,6 +142,7 @@ export function OrderScreen() {
     void run(async () => {
       const sent = await api.send(clean, total, heldId);
       reset({ ok: true, text: t("order.sent", { number: sent.number, total: pounds(sent.totalCents) }) });
+      if (clean.type !== "dine_in") setPaying(sent.id);
     });
   };
 
@@ -279,6 +283,7 @@ export function OrderScreen() {
       </aside>
 
       {sheet && <ItemSheet item={sheet.item} menu={menu} line={sheet.index === undefined ? undefined : draft.lines[sheet.index]} onSave={saveLine} onClose={() => setSheet(null)} />}
+      {paying && <PayDialog orderId={paying} onClose={() => setPaying(null)} />}
       {showHeld && (
         <HeldOrders
           held={held}

@@ -227,7 +227,10 @@ export const orders = pgTable(
     deliveryArea: text("delivery_area").notNull().default(""),
     deliveryDirections: text("delivery_directions").notNull().default(""),
     note: text("note").notNull().default(""),
+    /** Sum of the lines. Discounts, delivery fee and payments are order_events. */
     totalCents: integer("total_cents").notNull(),
+    /** Tax rate included in the prices when the order was sent (5% = 500). */
+    taxRateBp: integer("tax_rate_bp").notNull().default(0),
     staffId: uuid("staff_id").notNull().references(() => staff.id),
     sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -268,9 +271,12 @@ export const orderLines = pgTable(
   (t) => [index("order_lines_order").on(t.orderId)],
 );
 
-export const orderEventKind = pgEnum("order_event_kind", ["sent"]);
+export const orderEventKind = pgEnum("order_event_kind", ["sent", "discount", "delivery_fee", "payment", "void", "refund"]);
 
-/** Everything that happens to an order after it is sent (voids and refunds come in Milestone 4). */
+/**
+ * Everything that happens to an order after it is sent. Money events carry an
+ * amount; the order's balance is always worked out from them, never stored.
+ */
 export const orderEvents = pgTable(
   "order_events",
   {
@@ -279,10 +285,50 @@ export const orderEvents = pgTable(
     orderId: uuid("order_id").notNull().references(() => orders.id),
     kind: orderEventKind("kind").notNull(),
     staffId: uuid("staff_id").notNull().references(() => staff.id),
+    amountCents: integer("amount_cents"),
+    /** The manager who approved it (discounts). */
+    approvedBy: uuid("approved_by").references(() => staff.id),
+    reason: text("reason"),
+    note: text("note").notNull().default(""),
     data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("order_events_order").on(t.orderId)],
+);
+
+export const paymentMethod = pgEnum("payment_method", ["cash", "wallet"]);
+
+/** One tender per payment event. Cash only for now; "wallet" is reserved. */
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    orderId: uuid("order_id").notNull().references(() => orders.id),
+    eventId: uuid("event_id").notNull().references(() => orderEvents.id),
+    method: paymentMethod("method").notNull(),
+    /** What went against the bill. */
+    amountCents: integer("amount_cents").notNull(),
+    /** What the customer handed over (cash). */
+    tenderedCents: integer("tendered_cents").notNull(),
+    changeCents: integer("change_cents").notNull().default(0),
+    reference: text("reference"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("payments_order").on(t.orderId)],
+);
+
+/** Per-restaurant settings (rule 9): tax, receipt details. Changing one never rewrites past orders. */
+export const settings = pgTable(
+  "settings",
+  {
+    tenantId: text("tenant_id").notNull(),
+    key: text("key").notNull(),
+    value: jsonb("value").notNull(),
+    updatedBy: uuid("updated_by").references(() => staff.id),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("settings_key").on(t.tenantId, t.key)],
 );
 
 export type Customer = typeof customers.$inferSelect;

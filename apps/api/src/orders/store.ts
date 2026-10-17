@@ -1,7 +1,9 @@
 import { and, desc, eq, like, sql } from "drizzle-orm";
-import { customers, type Db, heldOrders, orderEvents, orderLines, orders } from "@pos/db";
+import { customers, type Db, heldOrders, orderEvents, orderLines, orders, printJobs } from "@pos/db";
 import { type DraftProblem, headerProblems, type OrderDraft, priceDraft } from "@pos/shared";
 import type { MenuStore } from "../menu/store.js";
+import type { SettingsStore } from "../settings.js";
+import { kitchenTicket } from "./tickets.js";
 
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
@@ -43,7 +45,7 @@ const cleanPhone = (phone: string | undefined) => (phone ? phone.replace(/\s+/g,
  * Orders for one restaurant. Held orders are editable drafts; a sent order is
  * written once (order, lines, a "sent" event) and never updated.
  */
-export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, timeZone: string) {
+export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, timeZone: string, settings: SettingsStore) {
   /** Saves the customer by phone so the next order can find them. Returns their id. */
   async function rememberCustomer(tx: Tx, draft: OrderDraft): Promise<string | null> {
     const phone = cleanPhone(draft.customer.phone);
@@ -108,6 +110,7 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, time
       if (!priced) throw new OrderRefused("invalid", { problems });
       if (priced.totalCents !== expectedTotalCents) throw new OrderRefused("price_changed", { totalCents: priced.totalCents });
 
+      const { rateBp: taxRateBp } = await settings.get("tax");
       const items = new Map(sellable.categories.flatMap((c) => c.items.map((i) => [i.id, i] as const)));
       const addonNames = new Map(sellable.addons.map((a) => [a.key, a] as const));
 
@@ -145,11 +148,12 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, time
             deliveryDirections: draft.type === "delivery" ? (draft.customer.directions ?? "") : "",
             note: draft.note ?? "",
             totalCents: priced.totalCents,
+            taxRateBp,
             staffId,
           })
           .returning();
 
-        await tx.insert(orderLines).values(
+        const lines = await tx.insert(orderLines).values(
           priced.lines.map((p, i) => {
             const item = items.get(p.line.itemId)!;
             const size = item.sizes.find((s) => s.sizeKey === p.line.sizeKey)!;
@@ -181,8 +185,11 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, time
               totalCents: p.totalCents,
             };
           }),
-        );
+        ).returning();
         await tx.insert(orderEvents).values({ tenantId, orderId: order!.id, kind: "sent", staffId });
+        // The kitchen ticket goes through the queue (rule 4); NOTIFY fires on commit.
+        await tx.insert(printJobs).values({ tenantId, printer: "kitchen", kind: "kitchen", payload: kitchenTicket(order!, lines, false) });
+        await tx.execute(sql`select pg_notify('print_jobs', ${tenantId})`);
         return { id: order!.id, number: order!.number, businessDate: order!.businessDate, totalCents: order!.totalCents };
       });
     },
