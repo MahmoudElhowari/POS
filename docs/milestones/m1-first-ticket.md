@@ -1,6 +1,6 @@
 # Milestone 1: First ticket
 
-Status: **plan, waiting for Mahmoud's approval.** No Milestone 1 code is written yet.
+Status: **steps 1–9 built** (approved 2026-10-17). Steps 10–11 wait for a real printer.
 
 ## Done means
 
@@ -112,5 +112,8 @@ These are not in this milestone: kitchen tickets, real orders, cash drawer, mult
 
 ## Open points
 
-- **No printer yet (as of 2026-10-17).** Steps 1–9 are built and tested against the fake printer, so nothing waits on hardware. Steps 10–11 wait until a printer arrives.
+- **No printer yet (as of 2026-10-17).** Steps 1–9 are built and tested against the fake printer. Steps 10–11 wait until a printer arrives; follow `docs/runbooks/printer-setup.md` then.
+- **Changes from the plan while building:**
+  - The schema lives in `packages/db`, not `apps/api`, because both services need it.
+  - A send counts as success once all bytes are flushed; port 9100 gives no print confirmation.
 - **Which printer to buy:** an 80 mm Ethernet ESC/POS model, ideally the same model the store will use, so the Calgary test printer matches the one in Syria. Raster output works on any ESC/POS model, but some cheap models need smaller raster bands, which I'll tune once we know the model.

@@ -43,6 +43,15 @@ services:
       postgres: { condition: service_healthy }
     restart: unless-stopped
 
+  # Stand-in printer for development and CI: docker compose --profile dev up
+  # Set RECEIPT_PRINTER_HOST=fake-printer in .env to print to it.
+  fake-printer:
+    profiles: [dev]
+    build: { context: ., dockerfile: tools/fake-printer/Dockerfile }
+    volumes:
+      - ./printer-output:/output
+    restart: unless-stopped
+
   web:
     build: { context: ., dockerfile: apps/web/Dockerfile }
     depends_on:

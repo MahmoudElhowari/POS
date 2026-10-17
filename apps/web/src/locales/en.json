@@ -1,4 +1,21 @@
 {
   "appName": "Romantica Pizza",
-  "setupComplete": "System is running"
+  "printerTest": {
+    "title": "Printer test",
+    "printer": "Receipt printer",
+    "online": "Online",
+    "offline": "Offline",
+    "checking": "Checking…",
+    "print": "Print test ticket",
+    "status": {
+      "queued": "Waiting",
+      "printing": "Printing",
+      "done": "Printed ✓",
+      "failed": "Printing failed"
+    },
+    "attempt": "Attempt {{count}}",
+    "willRetry": "Will retry automatically",
+    "retry": "Retry",
+    "error": "Cannot reach the server"
+  }
 }
