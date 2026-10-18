@@ -1,5 +1,6 @@
 import type {
   CategoryKind,
+  DashboardView,
   DayReport,
   DeliveryStatus,
   DraftProblem,
@@ -435,6 +436,16 @@ export const api = {
   closes: () => request<DayCloseSummary[]>("GET", "/reports/z"),
   dayClose: (id: string) => request<DayClose>("GET", `/reports/z/${id}`),
   reprintZ: (id: string) => request<void>("POST", `/reports/z/${id}/print`),
+  /** Without a period, this week so far. */
+  dashboard: (period?: { from: string; to: string }) =>
+    request<DashboardView>("GET", period ? `/reports/dashboard?from=${period.from}&to=${period.to}` : "/reports/dashboard"),
+  /** The CSV as a file to save; a plain link can't carry the sign-in token. */
+  dashboardCsv: async (from: string, to: string, kind: "days" | "items") => {
+    const res = await fetch(`/api/reports/dashboard/export?from=${from}&to=${to}&kind=${kind}`, { headers: token ? { authorization: `Bearer ${token}` } : {} });
+    if (res.status === 401 && token) onSignedOut();
+    if (!res.ok) throw new ApiError(res.status, await res.json().catch(() => ({})));
+    return res.blob();
+  },
   audit: (dayId?: string) => request<{ day: { id: string; date: string }; entries: AuditEntry[] }>("GET", `/admin/audit${dayId ? `?dayId=${dayId}` : ""}`),
 
   deliveryBoard: () => request<DeliveryBoard>("GET", "/delivery/board"),

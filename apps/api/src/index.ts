@@ -17,6 +17,7 @@ import { createAuditLog } from "./audit.js";
 import { createDayStore } from "./days.js";
 import { createDeliveryStore } from "./delivery.js";
 import { createCouponStore } from "./coupons.js";
+import { createDashboardStore } from "./dashboard.js";
 import { createInventoryStore } from "./inventory.js";
 import { createSettingsStore } from "./settings.js";
 
@@ -86,6 +87,7 @@ const app = createApp({
   delivery: createDeliveryStore(db, tenantId, days, money, audit),
   coupons: createCouponStore(db, tenantId, audit),
   inventory,
+  dashboard: createDashboardStore(db, tenantId, timeZone, days, settings),
   menuChanged: () => io.emit("menu.changed"),
   ordersChanged: () => io.emit("orders.changed"),
 });

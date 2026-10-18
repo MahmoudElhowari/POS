@@ -6,6 +6,7 @@ import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { AuthStore, Role, SessionStaff } from "./auth/store.js";
 import type { AuditLog } from "./audit.js";
 import { CouponRefused, type CouponStore } from "./coupons.js";
+import { type DashboardStore, validPeriod } from "./dashboard.js";
 import { DayRefused, type DayStore } from "./days.js";
 import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
 import { type InventoryStore, StockRefused } from "./inventory.js";
@@ -41,6 +42,7 @@ export interface AppDeps {
   delivery: DeliveryStore;
   coupons: CouponStore;
   inventory: InventoryStore;
+  dashboard: DashboardStore;
   /** Tells order screens to reload the menu (Socket.IO in production). */
   menuChanged: () => void;
   /** Tells today's orders and the delivery board to reload. */
@@ -497,6 +499,29 @@ export function createApp(deps: AppDeps) {
   reports.post("/z/:id/print", async (req, res) => {
     await deps.days.reprintZ(req.params.id!, req.staff!.staffId);
     res.status(202).end();
+  });
+
+  // ── Reports dashboard (Milestone 10): a period of days, read-only ──
+  const isoDate = z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((d) => !Number.isNaN(Date.parse(d)) && new Date(`${d}T00:00:00Z`).toISOString().startsWith(d));
+  const period = z.object({ from: isoDate, to: isoDate }).refine(({ from, to }) => validPeriod(from, to));
+
+  reports.get("/dashboard", async (req, res) => {
+    // With no period, this week so far.
+    if (req.query.from === undefined && req.query.to === undefined) return void res.json(await deps.dashboard.view());
+    const { from, to } = period.parse(req.query);
+    res.json(await deps.dashboard.view(from, to));
+  });
+
+  reports.get("/dashboard/export", async (req, res) => {
+    const { from, to } = period.parse(req.query);
+    const kind = z.enum(["days", "items"]).parse(req.query.kind);
+    res
+      .attachment(`romantica-${kind}-${from}-${to}.csv`)
+      .type("text/csv; charset=utf-8")
+      .send(await deps.dashboard.csv(from, to, kind));
   });
 
   app.use("/reports", reports);
