@@ -17,6 +17,7 @@ import { createAuditLog } from "./audit.js";
 import { createDayStore } from "./days.js";
 import { createDeliveryStore } from "./delivery.js";
 import { createCouponStore } from "./coupons.js";
+import { createInventoryStore } from "./inventory.js";
 import { createSettingsStore } from "./settings.js";
 
 const port = Number(process.env.API_PORT ?? 3000);
@@ -62,6 +63,9 @@ async function printerStatus(): Promise<PrinterStatus> {
 
 const money = createMoneyStore(db, tenantId, days, settings);
 const audit = createAuditLog(db, tenantId);
+const inventory = createInventoryStore(db, tenantId, days, audit);
+// The starting stock list: the drinks on the menu and the pizza boxes (Milestone 9).
+await inventory.ensureStarter();
 
 const app = createApp({
   checkDatabase: async () => {
@@ -81,6 +85,7 @@ const app = createApp({
   audit,
   delivery: createDeliveryStore(db, tenantId, days, money, audit),
   coupons: createCouponStore(db, tenantId, audit),
+  inventory,
   menuChanged: () => io.emit("menu.changed"),
   ordersChanged: () => io.emit("orders.changed"),
 });

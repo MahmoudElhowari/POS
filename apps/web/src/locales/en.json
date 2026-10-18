@@ -26,7 +26,8 @@
     "order": "New order",
     "today": "Today's orders",
     "reports": "Reports",
-    "delivery": "Delivery"
+    "delivery": "Delivery",
+    "inventory": "Inventory"
   },
   "pin": {
     "title": "Enter your PIN",
@@ -444,7 +445,11 @@
       "driver_changed": "Driver changed",
       "coupon_added": "Coupon added",
       "coupon_changed": "Coupon changed",
-      "coupon_used": "Coupon used"
+      "coupon_used": "Coupon used",
+      "stock_item_added": "Stock item added",
+      "stock_item_changed": "Stock item changed",
+      "stock_link_added": "Stock item linked to the menu",
+      "stock_link_removed": "Stock link removed"
     }
   },
   "drivers": {
@@ -535,5 +540,85 @@
     "added": "Coupon added",
     "duplicate": "A coupon with this code exists",
     "bad": "Type the code and the discount (1 to 100%)"
+  },
+  "inventory": {
+    "title": "Inventory",
+    "today": "Today",
+    "week": "Last 7 days",
+    "item": "Item",
+    "level": "In stock",
+    "in": "In",
+    "used": "Used",
+    "wasted": "Wasted",
+    "lastCount": "Last count",
+    "countedOn": "{{date}} · difference {{difference}}",
+    "open": "Record",
+    "empty": "No stock items yet",
+    "units": {
+      "g": "kg",
+      "ml": "L",
+      "piece": "pcs"
+    },
+    "unitNames": {
+      "g": "By kg",
+      "ml": "By litre",
+      "piece": "By piece"
+    },
+    "newItem": "New stock item",
+    "name": "Name",
+    "unit": "Unit",
+    "add": "Add",
+    "added": "Added",
+    "badName": "Type the item name",
+    "actions": {
+      "delivery": "Delivery",
+      "count": "Count",
+      "waste": "Waste"
+    },
+    "qty": "Quantity ({{unit}})",
+    "countedQty": "Actually on the shelf ({{unit}})",
+    "countHint": "The level becomes the count, and the difference is kept.",
+    "cost": "Price paid (SYP, optional)",
+    "supplier": "Supplier (optional)",
+    "reason": "Reason",
+    "save": {
+      "delivery": "Record delivery",
+      "count": "Save count",
+      "waste": "Record waste"
+    },
+    "saved": "Saved. In stock now: {{level}}",
+    "history": "History",
+    "noMoves": "Nothing yet",
+    "kinds": {
+      "delivery": "Delivery",
+      "count": "Count",
+      "waste": "Waste",
+      "sale": "Sale",
+      "void": "Order voided"
+    },
+    "costShown": "{{amount}} SYP",
+    "close": "Back",
+    "setup": "Setup (admin)",
+    "linksHelp": "What a sale uses up automatically, for example one box per large pizza for pickup and delivery.",
+    "everyKind": {
+      "pizza": "Every pizza",
+      "calzone": "Every calzone",
+      "other": "Other items"
+    },
+    "anySize": "Any size",
+    "takeawayOnly": "Pickup and delivery only",
+    "removeLink": "Remove",
+    "menuItem": "Menu item",
+    "size": "Size",
+    "addLink": "Link",
+    "errors": {
+      "not_found": "Item not found",
+      "duplicate": "An item with this name exists",
+      "inactive": "This item is turned off",
+      "bad_link": "Pick a menu item and a valid quantity",
+      "bad_qty": "Type a valid quantity",
+      "bad_cost": "Type the price in pounds",
+      "server": "Could not reach the server"
+    }
   }
 }

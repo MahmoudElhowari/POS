@@ -5,13 +5,14 @@ import { PinPad } from "./admin/PinPad";
 import { useIdleLock } from "./admin/useIdleLock";
 import { api, setSession, type Staff } from "./api";
 import { DeliveryBoard } from "./delivery/DeliveryBoard";
+import { InventoryScreen } from "./inventory/InventoryScreen";
 import { OrderScreen } from "./order/OrderScreen";
 import { PrinterTest } from "./PrinterTest";
 import { ReportsScreen } from "./reports/ReportsScreen";
 import { TodayOrders } from "./today/TodayOrders";
 
-type Route = "order" | "today" | "delivery" | "reports" | "menu" | "printer";
-const ROUTES: Route[] = ["order", "today", "delivery", "reports", "menu", "printer"];
+type Route = "order" | "today" | "delivery" | "reports" | "inventory" | "menu" | "printer";
+const ROUTES: Route[] = ["order", "today", "delivery", "reports", "inventory", "menu", "printer"];
 const routeFromHash = (): Route => ROUTES.find((r) => window.location.hash === `#/${r}`) ?? "order";
 
 const IDLE_LOCK_MS = 10 * 60_000;
@@ -69,9 +70,9 @@ export function App() {
 
   const routes: Route[] =
     staff?.role === "admin"
-      ? ["order", "today", "delivery", "reports", "menu", "printer"]
+      ? ["order", "today", "delivery", "reports", "inventory", "menu", "printer"]
       : staff?.role === "manager"
-        ? ["order", "today", "delivery", "reports", "printer"]
+        ? ["order", "today", "delivery", "reports", "inventory", "printer"]
         : ["order", "today", "delivery", "printer"];
 
   let screen;
@@ -93,6 +94,8 @@ export function App() {
   else if (route === "delivery") screen = <DeliveryBoard />;
   else if (route === "reports" && staff.role === "cashier") screen = <p className="rounded-xl bg-red-100 p-4 text-red-900">{t("pin.forbidden")}</p>;
   else if (route === "reports") screen = <ReportsScreen />;
+  else if (route === "inventory" && staff.role === "cashier") screen = <p className="rounded-xl bg-red-100 p-4 text-red-900">{t("pin.forbidden")}</p>;
+  else if (route === "inventory") screen = <InventoryScreen isAdmin={staff.role === "admin"} />;
   else screen = <OrderScreen />;
 
   return (

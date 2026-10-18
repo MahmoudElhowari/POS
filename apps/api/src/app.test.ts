@@ -6,6 +6,7 @@ import type { AuthStore, SessionStaff } from "./auth/store.js";
 import { CouponRefused, type CouponStore } from "./coupons.js";
 import { DayRefused, type DayStore } from "./days.js";
 import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
+import { type InventoryStore, StockRefused } from "./inventory.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { MenuStore } from "./menu/store.js";
 import type { MoneyStore } from "./orders/money.js";
@@ -142,6 +143,28 @@ function fakeCoupons(): CouponStore {
   return { list: record("list", []), add: record("add", "c-1"), update: record("update", true) } as unknown as CouponStore;
 }
 
+const inventoryCalls: unknown[][] = [];
+function fakeInventory(): InventoryStore {
+  const record =
+    (name: string, result: unknown = undefined) =>
+    async (...args: unknown[]) => {
+      inventoryCalls.push([name, ...args]);
+      if (name === "waste" && args[1] === 999) throw new StockRefused("inactive");
+      return result as never;
+    };
+  return {
+    report: record("report", []),
+    moves: record("moves", []),
+    delivery: record("delivery", { level: 10 }),
+    count: record("count", { level: 10 }),
+    waste: record("waste", { level: 10 }),
+    addItem: record("addItem", "si-1"),
+    updateItem: record("updateItem", true),
+    addLink: record("addLink", "sl-1"),
+    removeLink: record("removeLink", true),
+  } as unknown as InventoryStore;
+}
+
 const deliveryCalls: unknown[][] = [];
 function fakeDelivery(): DeliveryStore {
   const record =
@@ -184,6 +207,7 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     settings: fakeSettings(),
     delivery: fakeDelivery(),
     coupons: fakeCoupons(),
+    inventory: fakeInventory(),
     menuChanged: () => menuChanges++,
     ordersChanged: () => ordersChanges++,
     ...opts.deps,
@@ -504,5 +528,36 @@ describe("delivery board", () => {
     expect(res.status).toBe(201);
     expect(await res.json()).toEqual({ id: "d-1" });
     expect((await call("PATCH", `/admin/drivers/${driver}`, { token: "t-1111", body: { active: false } })).status).toBe(204);
+  });
+});
+
+describe("inventory", () => {
+  const item = "44444444-4444-4444-8444-444444444444";
+
+  it("is for managers and admins, not cashiers", async () => {
+    expect((await call("GET", "/inventory", { token: "t-2222" })).status).toBe(403);
+    expect((await call("GET", "/inventory", { token: "t-3333" })).status).toBe(200);
+  });
+
+  it("records deliveries, counts and waste in whole units", async () => {
+    const delivery = { qty: 24, costPounds: 2_400, supplier: "أبو سمير" };
+    expect((await call("POST", `/inventory/items/${item}/delivery`, { token: "t-3333", body: { ...delivery, qty: 1.5 } })).status).toBe(400);
+    expect((await call("POST", `/inventory/items/${item}/delivery`, { token: "t-3333", body: delivery })).status).toBe(200);
+    expect(inventoryCalls.at(-1)).toEqual(["delivery", item, 24, 2_400, "أبو سمير", "s-man"]);
+    expect((await call("POST", `/inventory/items/${item}/count`, { token: "t-3333", body: { counted: 0 } })).status).toBe(200);
+    expect(inventoryCalls.at(-1)).toEqual(["count", item, 0, "s-man"]);
+    const refused = await call("POST", `/inventory/items/${item}/waste`, { token: "t-3333", body: { qty: 999 } });
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toEqual({ error: "inactive" });
+  });
+
+  it("lets only the admin set up stock items and their links", async () => {
+    expect((await call("POST", "/admin/stock-items", { token: "t-3333", body: { nameAr: "طحين", unit: "g" } })).status).toBe(403);
+    expect((await call("POST", "/admin/stock-items", { token: "t-1111", body: { nameAr: "طحين", unit: "kg" } })).status).toBe(400);
+    expect((await call("POST", "/admin/stock-items", { token: "t-1111", body: { nameAr: "طحين", unit: "g" } })).status).toBe(201);
+    const link = { stockItemId: item, categoryKind: "pizza", sizeKey: "large", qty: 1, takeawayOnly: true };
+    expect((await call("POST", "/admin/stock-links", { token: "t-1111", body: link })).status).toBe(201);
+    expect(inventoryCalls.at(-1)).toEqual(["addLink", link, "s-admin"]);
+    expect((await call("DELETE", `/admin/stock-links/${item}`, { token: "t-1111" })).status).toBe(204);
   });
 });

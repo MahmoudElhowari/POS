@@ -1,4 +1,17 @@
-import type { DayReport, DeliveryStatus, DraftProblem, DriverRow, OrderDraft, OrderTotals, OrderType, Tender, Wallet } from "@pos/shared";
+import type {
+  CategoryKind,
+  DayReport,
+  DeliveryStatus,
+  DraftProblem,
+  DriverRow,
+  OrderDraft,
+  OrderTotals,
+  OrderType,
+  StockMoveKind,
+  StockUnit,
+  Tender,
+  Wallet,
+} from "@pos/shared";
 
 export type JobStatus = "queued" | "printing" | "done" | "failed";
 
@@ -265,6 +278,49 @@ export interface Settings {
   wallets: Wallet[];
 }
 
+export interface StockLinkView {
+  id: string;
+  itemId: string | null;
+  itemNameAr: string | null;
+  categoryKind: CategoryKind | null;
+  sizeKey: string | null;
+  qty: number;
+  takeawayOnly: boolean;
+}
+
+export interface StockRow {
+  id: string;
+  nameAr: string;
+  unit: StockUnit;
+  active: boolean;
+  level: number;
+  today: { in: number; used: number; wasted: number };
+  week: { in: number; used: number; wasted: number };
+  lastCount: { at: string; counted: number; difference: number; staffName: string } | null;
+  links: StockLinkView[];
+}
+
+export interface StockMoveView {
+  id: string;
+  kind: StockMoveKind;
+  qty: number;
+  costCents: number | null;
+  supplier: string;
+  note: string;
+  orderId: string | null;
+  staffName: string;
+  createdAt: string;
+}
+
+export interface StockLinkInput {
+  stockItemId: string;
+  itemId?: string | null;
+  categoryKind?: CategoryKind | null;
+  sizeKey?: string | null;
+  qty: number;
+  takeawayOnly?: boolean;
+}
+
 export interface Coupon {
   id: string;
   code: string;
@@ -393,6 +449,17 @@ export const api = {
   coupons: () => request<Coupon[]>("GET", "/admin/coupons"),
   addCoupon: (input: CouponInput) => request<{ id: string }>("POST", "/admin/coupons", input),
   updateCoupon: (id: string, patch: Partial<CouponInput>) => request<void>("PATCH", `/admin/coupons/${id}`, patch),
+
+  inventory: () => request<StockRow[]>("GET", "/inventory"),
+  stockMoves: (id: string) => request<StockMoveView[]>("GET", `/inventory/items/${id}/moves`),
+  stockDelivery: (id: string, input: { qty: number; costPounds: number | null; supplier: string }) =>
+    request<{ level: number }>("POST", `/inventory/items/${id}/delivery`, input),
+  stockCount: (id: string, counted: number) => request<{ level: number }>("POST", `/inventory/items/${id}/count`, { counted }),
+  stockWaste: (id: string, qty: number, note: string) => request<{ level: number }>("POST", `/inventory/items/${id}/waste`, { qty, note }),
+  addStockItem: (input: { nameAr: string; unit: StockUnit }) => request<{ id: string }>("POST", "/admin/stock-items", input),
+  updateStockItem: (id: string, patch: { nameAr?: string; active?: boolean }) => request<void>("PATCH", `/admin/stock-items/${id}`, patch),
+  addStockLink: (input: StockLinkInput) => request<{ id: string }>("POST", "/admin/stock-links", input),
+  removeStockLink: (id: string) => request<void>("DELETE", `/admin/stock-links/${id}`),
 
   settings: () => request<Settings>("GET", "/admin/settings"),
   updateSettings: (patch: Partial<Settings>) => request<Settings>("PATCH", "/admin/settings", patch),
