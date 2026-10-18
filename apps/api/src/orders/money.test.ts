@@ -95,7 +95,7 @@ describe.skipIf(!url)("money store (Postgres)", () => {
       discountCents: 32_500,
       deliveryFeeCents: 30_000,
       totalCents: 322_500,
-      taxIncludedCents: 15_400, // 3,225 × 5 / 105 = 153.57 → 154
+      taxIncludedCents: 13_900, // food only: 2,925 × 5 / 105 = 139.29 → 139
       taxRateBp: 500,
       tenderedCents: 500_000,
       changeCents: 177_500,

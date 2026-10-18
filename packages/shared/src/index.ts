@@ -6,3 +6,4 @@ export * from "./order.js";
 export * from "./totals.js";
 export * from "./tickets.js";
 export * from "./report.js";
+export * from "./delivery.js";

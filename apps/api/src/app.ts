@@ -6,6 +6,7 @@ import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { AuthStore, Role, SessionStaff } from "./auth/store.js";
 import type { AuditLog } from "./audit.js";
 import { DayRefused, type DayStore } from "./days.js";
+import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
 import { NotFound, type MenuStore } from "./menu/store.js";
 import { addonPatch, addonPricePatch, bulkRequest, itemPatch, newItem, sizePatch } from "./menu/types.js";
 import { MoneyRefused, type MoneyStore, VOID_REASONS } from "./orders/money.js";
@@ -35,8 +36,11 @@ export interface AppDeps {
   settings: SettingsStore;
   days: DayStore;
   audit: AuditLog;
+  delivery: DeliveryStore;
   /** Tells order screens to reload the menu (Socket.IO in production). */
   menuChanged: () => void;
+  /** Tells today's orders and the delivery board to reload. */
+  ordersChanged: () => void;
 }
 
 const staffInput = z.object({
@@ -56,6 +60,9 @@ const closeRequest = z.object({
 });
 const voidRequest = z.object({ reason: z.enum(VOID_REASONS), note: z.string().trim().max(200).default("") });
 const staffPatch = staffInput.partial().extend({ active: z.boolean().optional() });
+const driverInput = z.object({ name: z.string().trim().min(1).max(40) });
+const driverPatch = driverInput.partial().extend({ active: z.boolean().optional() });
+const uuid = z.string().regex(/^[0-9a-f-]{36}$/i);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -145,6 +152,12 @@ export function createApp(deps: AppDeps) {
     res.json(req.staff);
   });
 
+  /** After any successful change, other tablets reload today's orders and the board. */
+  const announce = (req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== "GET") res.on("finish", () => res.statusCode < 300 && deps.ordersChanged());
+    next();
+  };
+
   // ── Menu (Milestone 2) ──
   app.get("/menu", async (_req, res) => {
     res.json(await deps.menu.publicMenu());
@@ -155,7 +168,7 @@ export function createApp(deps: AppDeps) {
   admin.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
   // Any successful menu change reaches the order screens straight away.
   admin.use((req, res, next) => {
-    if (req.method !== "GET" && !req.path.startsWith("/staff") && !req.path.startsWith("/settings")) {
+    if (req.method !== "GET" && !req.path.startsWith("/staff") && !req.path.startsWith("/settings") && !req.path.startsWith("/drivers")) {
       res.on("finish", () => {
         if (res.statusCode < 300 && !req.path.endsWith("/preview")) deps.menuChanged();
       });
@@ -223,6 +236,20 @@ export function createApp(deps: AppDeps) {
     res.status(found ? 204 : 404).end();
   });
 
+  admin.get("/drivers", async (_req, res) => {
+    res.json(await deps.delivery.drivers());
+  });
+
+  admin.post("/drivers", async (req, res) => {
+    const { name } = driverInput.parse(req.body);
+    res.status(201).json({ id: await deps.delivery.addDriver(name, req.staff!.staffId) });
+  });
+
+  admin.patch("/drivers/:id", async (req, res) => {
+    const found = await deps.delivery.updateDriver(req.params.id!, defined(driverPatch.parse(req.body)), req.staff!.staffId);
+    res.status(found ? 204 : 404).end();
+  });
+
   admin.get("/settings", async (_req, res) => {
     res.json(await deps.settings.all());
   });
@@ -243,7 +270,7 @@ export function createApp(deps: AppDeps) {
 
   // ── Orders (Milestone 3) ──
   const orders = express.Router();
-  orders.use(requireRole("admin", "manager", "cashier"));
+  orders.use(requireRole("admin", "manager", "cashier"), announce);
   orders.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
 
   orders.get("/held", async (_req, res) => {
@@ -315,6 +342,34 @@ export function createApp(deps: AppDeps) {
 
   app.use("/orders", orders);
 
+  // ── Delivery board (Milestone 7): every role ──
+  const delivery = express.Router();
+  delivery.use(requireRole("admin", "manager", "cashier"), announce);
+  delivery.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
+
+  delivery.get("/board", async (_req, res) => {
+    res.json(await deps.delivery.board());
+  });
+
+  delivery.post("/out", async (req, res) => {
+    const { driverId, orderIds } = z.object({ driverId: uuid, orderIds: z.array(uuid).min(1).max(20) }).parse(req.body);
+    await deps.delivery.out(orderIds, driverId, req.staff!.staffId);
+    res.status(204).end();
+  });
+
+  delivery.post("/orders/:id/delivered", async (req, res) => {
+    const { tenderedPounds } = z.object({ tenderedPounds: wholePounds.min(1).nullable().default(null) }).parse(req.body);
+    res.json(await deps.delivery.delivered(req.params.id!, tenderedPounds, req.staff!.staffId));
+  });
+
+  delivery.post("/orders/:id/returned", async (req, res) => {
+    const { note } = z.object({ note: z.string().trim().max(200).default("") }).parse(req.body);
+    await deps.delivery.returned(req.params.id!, note, req.staff!.staffId);
+    res.status(204).end();
+  });
+
+  app.use("/delivery", delivery);
+
   // ── Close of day (Milestone 5): managers and admins ──
   const reports = express.Router();
   reports.use(requireRole("admin", "manager"));
@@ -369,6 +424,7 @@ export function createApp(deps: AppDeps) {
     if (err instanceof z.ZodError) return void res.status(400).json({ error: "invalid", issues: err.issues });
     if (err instanceof NotFound) return void res.status(404).json({ error: "not_found" });
     if (err instanceof StaffRefused) return void res.status(409).json({ error: err.code });
+    if (err instanceof DeliveryRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof MoneyRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof DayRefused) {
       return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code, ...(err.code === "unresolved" ? { orders: err.detail } : {}) });

@@ -62,6 +62,6 @@ docs/             PLAN.md, decisions/, runbooks, milestone plans
 
 - Plan first: each milestone gets a plan in `docs/` that Mahmoud approves before any code is written.
 - Do not push, open PRs or merge without Mahmoud's go-ahead.
-- Keep changes to the current milestone. Phase 2+ features wait until Phase 1 has run a clean week live.
+- Keep changes to the current milestone. Phase 2 is being built before the pilot, and everything is tested in the store afterwards (Mahmoud, 2026-10-18; see `docs/decisions/0007-phase-2-before-pilot-and-delivery.md`).
 - Add a short note in `docs/decisions/` for every significant choice.
 - Never edit an applied migration or a `.env` file. Add a new migration instead.

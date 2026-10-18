@@ -32,7 +32,7 @@ const ev = (o: ReportOrder, kind: ReportEvent["kind"], amountCents: number, reas
 
 describe("dayReport", () => {
   // 1: pickup 750, paid cash.
-  // 2: delivery 850 + fee 300 − 10% (85) = 1,065, unpaid: carried over.
+  // 2: delivery 850 − 10% (85) = 765 food + fee 300 = 1,065, unpaid: carried over.
   // 3: dine-in 2,100 voided.
   // 4: dine-in 3,250 paid, then refunded.
   // 5: dine-in 1,000 unpaid, nobody has dealt with it.
@@ -51,20 +51,20 @@ describe("dayReport", () => {
   const events = [ev(o1, "payment", 75_000), ev(o3, "void", 0, "wrong_order"), ev(o4, "payment", 325_000), ev(o4, "refund", 325_000), ev(o7, "payment", 120_000)];
   const report = dayReport([o1, o2, o3, o4, o5, o6, o7], events, 50_000);
 
-  it("counts the day's sales, without voided orders or yesterday's carried order", () => {
+  it("counts the day's food sales, without voided orders, yesterday's carried order or the drivers' fees", () => {
     expect(report).toMatchObject({
       ordersCount: 5,
       grossCents: 75_000 + 85_000 + 325_000 + 100_000 + 95_000,
       discountCents: 8_500,
       deliveryFeeCents: 30_000,
-      netCents: 75_000 + 106_500 + 325_000 + 100_000 + 95_000,
+      netCents: 75_000 + 76_500 + 325_000 + 100_000 + 95_000,
     });
-    // 750 → 36, 1,065 → 51, 3,250 → 155, 1,000 → 48, 950 → 45
-    expect(report.taxIncludedCents).toBe((36 + 51 + 155 + 48 + 45) * 100);
+    // Tax on the food only: 750 → 36, 765 → 36, 3,250 → 155, 1,000 → 48, 950 → 45
+    expect(report.taxIncludedCents).toBe((36 + 36 + 155 + 48 + 45) * 100);
     expect(report.byType).toEqual([
       { type: "dine_in", count: 2, netCents: 425_000 },
       { type: "pickup", count: 2, netCents: 170_000 },
-      { type: "delivery", count: 1, netCents: 106_500 },
+      { type: "delivery", count: 1, netCents: 76_500 },
     ]);
   });
 
@@ -89,6 +89,26 @@ describe("dayReport", () => {
       { nameAr: "بيتزا ذرة", sizeAr: "وسط", halves: 5 },
       { nameAr: "بيتزا السلطان", sizeAr: "وسط", halves: 1 },
     ]);
+  });
+
+  it("adds up each driver's orders, cash and fees, and takes the fees out of the drawer", () => {
+    // Abu Ali delivers 8 (1,000 + fee 300, collected 1,300) and 9 (600 + fee 200, paid at the counter).
+    const o8 = order(8, "delivery", 100_000, [{ kind: "delivery_fee", amountCents: 30_000 }, { kind: "payment", amountCents: 130_000 }]);
+    const o9 = order(9, "delivery", 60_000, [{ kind: "delivery_fee", amountCents: 20_000 }, { kind: "payment", amountCents: 80_000 }]);
+    const r = dayReport(
+      [o8, o9],
+      [
+        { ...ev(o9, "payment", 80_000) },
+        { ...ev(o8, "payment", 130_000), driverName: "أبو علي" },
+        { ...ev(o8, "delivered", 30_000), driverName: "أبو علي" },
+        { ...ev(o9, "delivered", 20_000), driverName: "أبو علي" },
+      ],
+      0,
+    );
+    expect(r.drivers).toEqual([{ name: "أبو علي", orders: 2, collectedCents: 130_000, feesCents: 50_000, handInCents: 80_000 }]);
+    expect(r).toMatchObject({ netCents: 160_000, deliveryFeeCents: 50_000, driverFeesCents: 50_000, cashCents: 210_000 });
+    // Cash 2,100 − fees 500 = 1,600: the food.
+    expect(r.expectedCashCents).toBe(160_000);
   });
 
   it("is all zeros on a quiet day", () => {

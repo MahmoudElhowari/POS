@@ -46,6 +46,7 @@ describe("orderTotals", () => {
       subtotalCents: syp(3250),
       discountCents: 0,
       deliveryFeeCents: 0,
+      foodCents: syp(3250),
       totalCents: syp(3250),
       taxIncludedCents: syp(155),
       paidCents: 0,
@@ -66,6 +67,19 @@ describe("orderTotals", () => {
     );
     expect(t.totalCents).toBe(syp(3000));
     expect(t.discountCents).toBe(syp(300));
+  });
+
+  it("charges tax on the food only, because the delivery fee goes to the driver", () => {
+    const t = orderTotals(
+      syp(2100),
+      [
+        { kind: "discount", amountCents: syp(100) },
+        { kind: "delivery_fee", amountCents: syp(300) },
+      ],
+      FIVE_PERCENT,
+    );
+    // Food 2,000 → tax 2,000 × 5 / 105 = 95.24 → 95. The customer still pays 2,300.
+    expect(t).toMatchObject({ foodCents: syp(2000), totalCents: syp(2300), taxIncludedCents: syp(95), balanceCents: syp(2300) });
   });
 
   it("never discounts below zero", () => {

@@ -166,6 +166,21 @@ export const sessions = pgTable("sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/** Delivery drivers: a list of names the cashier picks from. They never sign in, so they have no PIN. */
+export const drivers = pgTable(
+  "drivers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    name: text("name").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("drivers_name").on(t.tenantId, t.name)],
+);
+
+export type Driver = typeof drivers.$inferSelect;
+
 export type MenuCategory = typeof menuCategories.$inferSelect;
 export type MenuItem = typeof menuItems.$inferSelect;
 export type ItemSize = typeof itemSizes.$inferSelect;
@@ -271,8 +286,23 @@ export const orderLines = pgTable(
   (t) => [index("order_lines_order").on(t.orderId)],
 );
 
-/** "left_unpaid": a manager closed the day leaving this (non-delivery) order unpaid. */
-export const orderEventKind = pgEnum("order_event_kind", ["sent", "discount", "delivery_fee", "payment", "void", "refund", "left_unpaid"]);
+/**
+ * "left_unpaid": a manager closed the day leaving this (non-delivery) order unpaid.
+ * "out_for_delivery", "delivered", "returned": the delivery board (Milestone 7);
+ * `data` holds the driver, and "delivered" carries the fee the driver keeps.
+ */
+export const orderEventKind = pgEnum("order_event_kind", [
+  "sent",
+  "discount",
+  "delivery_fee",
+  "payment",
+  "void",
+  "refund",
+  "left_unpaid",
+  "out_for_delivery",
+  "delivered",
+  "returned",
+]);
 
 /**
  * Everything that happens to an order after it is sent. Money events carry an

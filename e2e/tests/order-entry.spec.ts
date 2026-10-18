@@ -72,7 +72,8 @@ test("a cashier builds a delivery order, holds it, recalls it and sends it", asy
   await expect(page.getByTestId("order-total")).toHaveText("3,250 ل.س");
 
   await page.getByRole("button", { name: "إرسال الطلب" }).click();
-  await expect(page.getByRole("status")).toContainText(/تم إرسال الطلب رقم \d+ · 3,250 ل\.س/);
+  // The pay dialog opens after sending, and its amount box is a status too, so pick the notice by its text.
+  await expect(page.getByRole("status").filter({ hasText: "تم إرسال الطلب" })).toContainText(/تم إرسال الطلب رقم \d+ · 3,250 ل\.س/);
 });
 
 test("an order needs a customer name", async ({ page }) => {

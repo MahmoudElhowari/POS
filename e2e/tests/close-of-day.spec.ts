@@ -44,7 +44,7 @@ async function sendCola(page: Page, type: string, name: string) {
   await sheet.getByRole("button", { name: /علبة/ }).click();
   await sheet.getByRole("button", { name: "إضافة إلى الطلب" }).click();
   await page.getByRole("button", { name: "إرسال الطلب" }).click();
-  await expect(page.getByRole("status")).toContainText("تم إرسال الطلب");
+  await expect(page.getByRole("status").filter({ hasText: "تم إرسال الطلب" })).toBeVisible();
 }
 
 test("a cashier cannot open the reports", async ({ page }) => {
@@ -98,5 +98,5 @@ test("a manager prints an X, deals with unpaid orders, counts the drawer and clo
   // The next day starts again at order 1.
   await page.getByRole("link", { name: "طلب جديد" }).click();
   await sendCola(page, "داخل المطعم", "اليوم الجديد");
-  await expect(page.getByRole("status")).toContainText("تم إرسال الطلب رقم 1 ·");
+  await expect(page.getByRole("status").filter({ hasText: "تم إرسال الطلب" })).toContainText("تم إرسال الطلب رقم 1 ·");
 });

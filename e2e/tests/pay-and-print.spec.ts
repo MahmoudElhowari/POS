@@ -109,7 +109,7 @@ test("a cashier voids an unpaid dine-in order with a reason", async ({ page }) =
   const name = `زبون الإلغاء ${Date.now() % 100_000}`;
   await buildOrder(page, "داخل المطعم", name);
   await page.getByRole("button", { name: "إرسال الطلب" }).click();
-  await expect(page.getByRole("status")).toContainText("تم إرسال الطلب");
+  await expect(page.getByRole("status").filter({ hasText: "تم إرسال الطلب" })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0); // dine-in pays at the end of the meal
 
   await page.getByRole("link", { name: "طلبات اليوم" }).click();

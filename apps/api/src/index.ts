@@ -15,6 +15,7 @@ import { createOrderStore } from "./orders/store.js";
 import { createPrintStore } from "./prints.js";
 import { createAuditLog } from "./audit.js";
 import { createDayStore } from "./days.js";
+import { createDeliveryStore } from "./delivery.js";
 import { createSettingsStore } from "./settings.js";
 
 const port = Number(process.env.API_PORT ?? 3000);
@@ -58,6 +59,9 @@ async function printerStatus(): Promise<PrinterStatus> {
   }
 }
 
+const money = createMoneyStore(db, tenantId, days, settings);
+const audit = createAuditLog(db, tenantId);
+
 const app = createApp({
   checkDatabase: async () => {
     await pool.query("select 1");
@@ -70,11 +74,13 @@ const app = createApp({
   limiter: createLoginLimiter(),
   staff: createStaffStore(db, tenantId),
   orders: createOrderStore(db, tenantId, menu, days, settings),
-  money: createMoneyStore(db, tenantId, days, settings),
+  money,
   settings,
   days,
-  audit: createAuditLog(db, tenantId),
+  audit,
+  delivery: createDeliveryStore(db, tenantId, days, money, audit),
   menuChanged: () => io.emit("menu.changed"),
+  ordersChanged: () => io.emit("orders.changed"),
 });
 
 // Live updates for the order screens. Reached through the web proxy at /api/socket.io.

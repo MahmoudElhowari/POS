@@ -101,6 +101,35 @@ export function createMoneyStore(db: Db, tenantId: string, days: DayStore, setti
     await queue(tx, "receipt", "receipt", payload);
   }
 
+  /**
+   * Records cash inside the caller's transaction, on the given day. `data` adds
+   * to the event (the driver who collected it, for a delivery).
+   */
+  async function cashIn(tx: Tx, dayId: string, orderId: string, tenderedPounds: number, staffId: string, data: object = {}) {
+    const { totals } = await load(tx, orderId, true);
+    if (totals.status === "voided") throw new MoneyRefused("voided");
+    if (totals.status === "refunded") throw new MoneyRefused("refunded");
+    if (totals.balanceCents <= 0) throw new MoneyRefused("paid");
+    if (!Number.isSafeInteger(tenderedPounds) || tenderedPounds <= 0) throw new MoneyRefused("bad_amount");
+    const { appliedCents, changeCents } = cashTender(totals.balanceCents, tenderedPounds * 100);
+    const [event] = await tx
+      .insert(orderEvents)
+      .values({ tenantId, orderId, kind: "payment", staffId, amountCents: appliedCents, data: { ...data, method: "cash" }, dayId })
+      .returning();
+    await tx.insert(payments).values({
+      tenantId,
+      orderId,
+      eventId: event!.id,
+      method: "cash",
+      amountCents: appliedCents,
+      tenderedCents: tenderedPounds * 100,
+      changeCents,
+    });
+    const after = (await load(tx, orderId)).totals;
+    if (after.status === "paid") await queueReceipt(tx, orderId, false);
+    return { totals: after, changeCents };
+  }
+
   /** Discounts and fees only change an order nobody has paid towards yet. */
   function assertOpen(totals: OrderTotals) {
     if (totals.status === "voided") throw new MoneyRefused("voided");
@@ -180,30 +209,11 @@ export function createMoneyStore(db: Db, tenantId: string, days: DayStore, setti
     async payCash(orderId: string, tenderedPounds: number, staffId: string) {
       return db.transaction(async (tx) => {
         const day = await days.ensureOpen(tx);
-        const { totals } = await load(tx, orderId, true);
-        if (totals.status === "voided") throw new MoneyRefused("voided");
-        if (totals.status === "refunded") throw new MoneyRefused("refunded");
-        if (totals.balanceCents <= 0) throw new MoneyRefused("paid");
-        if (!Number.isSafeInteger(tenderedPounds) || tenderedPounds <= 0) throw new MoneyRefused("bad_amount");
-        const { appliedCents, changeCents } = cashTender(totals.balanceCents, tenderedPounds * 100);
-        const [event] = await tx
-          .insert(orderEvents)
-          .values({ tenantId, orderId, kind: "payment", staffId, amountCents: appliedCents, data: { method: "cash" }, dayId: day.id })
-          .returning();
-        await tx.insert(payments).values({
-          tenantId,
-          orderId,
-          eventId: event!.id,
-          method: "cash",
-          amountCents: appliedCents,
-          tenderedCents: tenderedPounds * 100,
-          changeCents,
-        });
-        const after = (await load(tx, orderId)).totals;
-        if (after.status === "paid") await queueReceipt(tx, orderId, false);
-        return { totals: after, changeCents };
+        return cashIn(tx, day.id, orderId, tenderedPounds, staffId);
       });
     },
+
+    cashIn,
 
     /** Cancels an order nobody has paid for. */
     async void(orderId: string, reason: VoidReason, note: string, staffId: string) {
