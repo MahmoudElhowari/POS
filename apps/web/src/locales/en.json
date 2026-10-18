@@ -340,7 +340,8 @@
     "tabs": {
       "x": "X report",
       "close": "Close the day",
-      "history": "Past Z reports"
+      "history": "Past Z reports",
+      "dashboard": "Dashboard"
     },
     "day": "Business day {{date}} · since {{time}}",
     "float": "Opening float in the drawer (SYP)",
@@ -619,6 +620,86 @@
       "bad_qty": "Type a valid quantity",
       "bad_cost": "Type the price in pounds",
       "server": "Could not reach the server"
+    }
+  },
+  "dashboard": {
+    "periods": {
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "this_week": "This week",
+      "last_week": "Last week",
+      "this_month": "This month",
+      "last_month": "Last month"
+    },
+    "from": "From",
+    "to": "To",
+    "show": "Show",
+    "exportDays": "Download days (CSV)",
+    "exportItems": "Download items (CSV)",
+    "money": "{{amount}} SYP",
+    "headline": {
+      "salesCents": "Sales",
+      "orders": "Orders",
+      "averageCents": "Average order",
+      "discountCents": "Discounts",
+      "refundCents": "Refunds",
+      "voids": "Voided orders"
+    },
+    "noPrevious": "No earlier period to compare",
+    "change": "{{sign}}{{percent}}% on the previous period",
+    "hours": "Sales by hour",
+    "days": "Sales by day",
+    "weekdays": "Average for each day of the week",
+    "weekday": "Day",
+    "openDays": "Days open",
+    "sales": "Sales",
+    "average": "Average per day",
+    "weekdaysShort": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "weekdayNames": {
+      "0": "Sunday",
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday"
+    },
+    "barDetail": "{{label}}: {{orders}} orders, {{amount}} SYP",
+    "byType": "By order type",
+    "type": "Type",
+    "orders": "Orders",
+    "byMethod": "By payment method",
+    "method": "Method",
+    "payments": "Payments",
+    "amount": "Amount",
+    "cash": "Cash",
+    "none": "No sales in this period",
+    "items": "Items sold",
+    "bySales": "By sales",
+    "byQty": "By quantity",
+    "category": "Category",
+    "otherCategory": "Other",
+    "item": "Item",
+    "qty": "Qty",
+    "share": "Share",
+    "itemsNote": "Item sales are line prices before order discounts. A half-and-half counts half for each side.",
+    "stock": "Stock bought",
+    "stockTotal": "Paid for deliveries:",
+    "stockItem": "Stock item",
+    "deliveries": "Deliveries",
+    "cost": "Paid",
+    "noStock": "No deliveries recorded in this period",
+    "errors": {
+      "server": "Couldn't reach the server",
+      "badPeriod": "Pick two dates, the first before the second"
     }
   }
 }

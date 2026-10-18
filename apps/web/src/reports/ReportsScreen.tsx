@@ -4,10 +4,11 @@ import { ApiError, api, type DayClose, type DayCloseSummary, type OrderDetail, t
 import { parsePounds, pounds } from "../format";
 import { PayDialog } from "../today/PayDialog";
 import { ReasonDialog } from "../today/ReasonDialog";
+import { DashboardTab } from "./DashboardTab";
 import { DifferenceRow, ReportView } from "./ReportView";
 
-type Tab = "x" | "close" | "history";
-const TABS: Tab[] = ["x", "close", "history"];
+type Tab = "x" | "close" | "history" | "dashboard";
+const TABS: Tab[] = ["x", "close", "history", "dashboard"];
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
@@ -17,7 +18,7 @@ function errorText(err: unknown, t: (k: string) => string) {
   return t(`reports.close.errors.${code && known.includes(code) ? code : "server"}`);
 }
 
-/** X report, close of day with the Z, and past Z reports (managers and admins). */
+/** X report, close of day with the Z, past Z reports and the dashboard (managers and admins). */
 export function ReportsScreen() {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("x");
@@ -38,6 +39,7 @@ export function ReportsScreen() {
       {tab === "x" && <XTab />}
       {tab === "close" && <CloseTab />}
       {tab === "history" && <HistoryTab />}
+      {tab === "dashboard" && <DashboardTab />}
     </section>
   );
 }

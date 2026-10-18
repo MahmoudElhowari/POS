@@ -6,6 +6,7 @@ import type { AuthStore, SessionStaff } from "./auth/store.js";
 import { CouponRefused, type CouponStore } from "./coupons.js";
 import { DayRefused, type DayStore } from "./days.js";
 import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
+import type { DashboardStore } from "./dashboard.js";
 import { type InventoryStore, StockRefused } from "./inventory.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { MenuStore } from "./menu/store.js";
@@ -165,6 +166,21 @@ function fakeInventory(): InventoryStore {
   } as unknown as InventoryStore;
 }
 
+const dashboardCalls: unknown[][] = [];
+function fakeDashboard(): DashboardStore {
+  return {
+    today: async () => "2026-10-18",
+    view: async (...args: unknown[]) => {
+      dashboardCalls.push(["view", ...args]);
+      return { today: "2026-10-18" } as never;
+    },
+    csv: async (...args: unknown[]) => {
+      dashboardCalls.push(["csv", ...args]);
+      return "\uFEFFالتاريخ,الطلبات\r\n";
+    },
+  };
+}
+
 const deliveryCalls: unknown[][] = [];
 function fakeDelivery(): DeliveryStore {
   const record =
@@ -208,6 +224,7 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     delivery: fakeDelivery(),
     coupons: fakeCoupons(),
     inventory: fakeInventory(),
+    dashboard: fakeDashboard(),
     menuChanged: () => menuChanges++,
     ordersChanged: () => ordersChanges++,
     ...opts.deps,
@@ -559,5 +576,30 @@ describe("inventory", () => {
     expect((await call("POST", "/admin/stock-links", { token: "t-1111", body: link })).status).toBe(201);
     expect(inventoryCalls.at(-1)).toEqual(["addLink", link, "s-admin"]);
     expect((await call("DELETE", `/admin/stock-links/${item}`, { token: "t-1111" })).status).toBe(204);
+  });
+});
+
+describe("reports dashboard", () => {
+  it("is for managers and admins, not cashiers", async () => {
+    expect((await call("GET", "/reports/dashboard?from=2026-10-18&to=2026-10-24", { token: "t-2222" })).status).toBe(403);
+    expect((await call("GET", "/reports/dashboard?from=2026-10-18&to=2026-10-24", { token: "t-3333" })).status).toBe(200);
+    expect(dashboardCalls.at(-1)).toEqual(["view", "2026-10-18", "2026-10-24"]);
+    expect((await call("GET", "/reports/dashboard", { token: "t-3333" })).status).toBe(200);
+    expect(dashboardCalls.at(-1)).toEqual(["view"]);
+  });
+
+  it("refuses a period that is backwards, longer than a year, or not a real date", async () => {
+    for (const q of ["from=2026-10-24&to=2026-10-18", "from=2025-01-01&to=2026-10-18", "from=2026-02-30&to=2026-03-01", "from=today&to=2026-10-18", "from=2026-10-18"]) {
+      expect((await call("GET", `/reports/dashboard?${q}`, { token: "t-3333" })).status).toBe(400);
+    }
+  });
+
+  it("downloads a CSV file", async () => {
+    const res = await call("GET", "/reports/dashboard/export?from=2026-10-01&to=2026-10-18&kind=items", { token: "t-1111" });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toBe("text/csv; charset=utf-8");
+    expect(res.headers.get("content-disposition")).toContain("romantica-items-2026-10-01-2026-10-18.csv");
+    expect(dashboardCalls.at(-1)).toEqual(["csv", "2026-10-01", "2026-10-18", "items"]);
+    expect((await call("GET", "/reports/dashboard/export?from=2026-10-01&to=2026-10-18&kind=orders", { token: "t-1111" })).status).toBe(400);
   });
 });
