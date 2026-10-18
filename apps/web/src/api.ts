@@ -1,4 +1,4 @@
-import type { DayReport, DraftProblem, OrderDraft, OrderTotals, OrderType } from "@pos/shared";
+import type { DayReport, DeliveryStatus, DraftProblem, DriverRow, OrderDraft, OrderTotals, OrderType } from "@pos/shared";
 
 export type JobStatus = "queued" | "printing" | "done" | "failed";
 
@@ -15,6 +15,31 @@ export interface PrinterStatus {
   online: boolean;
   /** The kitchen printer; the fields above are the receipt printer. */
   kitchen?: { host: string | null; port: number | null; online: boolean };
+}
+
+export interface Driver {
+  id: string;
+  name: string;
+  active: boolean;
+}
+
+export interface BoardOrder {
+  id: string;
+  number: number;
+  customerName: string;
+  phone: string | null;
+  area: string;
+  directions: string;
+  sentAt: string;
+  carried: boolean;
+  totals: OrderTotals;
+  delivery: DeliveryStatus;
+}
+
+export interface DeliveryBoard {
+  orders: BoardOrder[];
+  drivers: { id: string; name: string }[];
+  summary: DriverRow[];
 }
 
 export interface Staff {
@@ -165,7 +190,7 @@ export interface OrderLineView {
 
 export interface OrderEventView {
   id: string;
-  kind: "sent" | "discount" | "delivery_fee" | "payment" | "void" | "refund" | "left_unpaid";
+  kind: "sent" | "discount" | "delivery_fee" | "payment" | "void" | "refund" | "left_unpaid" | "out_for_delivery" | "delivered" | "returned";
   amountCents: number | null;
   staffName: string;
   approvedByName: string | null;
@@ -330,6 +355,15 @@ export const api = {
   dayClose: (id: string) => request<DayClose>("GET", `/reports/z/${id}`),
   reprintZ: (id: string) => request<void>("POST", `/reports/z/${id}/print`),
   audit: (dayId?: string) => request<{ day: { id: string; date: string }; entries: AuditEntry[] }>("GET", `/admin/audit${dayId ? `?dayId=${dayId}` : ""}`),
+
+  deliveryBoard: () => request<DeliveryBoard>("GET", "/delivery/board"),
+  sendOut: (driverId: string, orderIds: string[]) => request<void>("POST", "/delivery/out", { driverId, orderIds }),
+  delivered: (id: string, tenderedPounds: number | null) =>
+    request<{ totals: OrderTotals; changeCents: number }>("POST", `/delivery/orders/${id}/delivered`, { tenderedPounds }),
+  returned: (id: string, note: string) => request<void>("POST", `/delivery/orders/${id}/returned`, { note }),
+  drivers: () => request<Driver[]>("GET", "/admin/drivers"),
+  addDriver: (name: string) => request<{ id: string }>("POST", "/admin/drivers", { name }),
+  updateDriver: (id: string, patch: Partial<{ name: string; active: boolean }>) => request<void>("PATCH", `/admin/drivers/${id}`, patch),
 
   settings: () => request<Settings>("GET", "/admin/settings"),
   updateSettings: (patch: Partial<Settings>) => request<Settings>("PATCH", "/admin/settings", patch),

@@ -21,21 +21,39 @@ export interface ReportOrder {
   lines: { qty: number; nameAr: string; sizeAr: string | null; otherHalfAr: string | null }[];
 }
 
-/** Money events that happened during this day. */
+/**
+ * Money events that happened during this day. "delivered" carries the delivery
+ * fee the driver keeps; a payment the driver collected carries the driver.
+ */
 export interface ReportEvent {
   orderId: string;
   number: number;
-  kind: "payment" | "refund" | "void";
+  kind: "payment" | "refund" | "void" | "delivered";
   amountCents: number;
   staffName: string;
   reason: string | null;
+  driverName?: string | null;
+}
+
+export interface DriverRow {
+  name: string;
+  /** Orders delivered today. */
+  orders: number;
+  /** Cash the driver collected at the door. */
+  collectedCents: number;
+  /** Delivery fees the driver keeps. */
+  feesCents: number;
+  /** What the driver hands in: collected minus fees. Negative means the drawer pays the driver. */
+  handInCents: number;
 }
 
 export interface DayReport {
   ordersCount: number;
   grossCents: number;
   discountCents: number;
+  /** Delivery fees on today's orders. They belong to the drivers, not the restaurant. */
   deliveryFeeCents: number;
+  /** Food sales after discounts: the restaurant's sales. */
   netCents: number;
   taxIncludedCents: number;
   byType: { type: OrderType; count: number; netCents: number }[];
@@ -53,6 +71,9 @@ export interface DayReport {
   unresolved: { id: string; number: number; customerName: string; balanceCents: number }[];
   /** Quantity sold in halves, so half-and-half counts ½ for each side without fractions. */
   items: { nameAr: string; sizeAr: string | null; halves: number }[];
+  /** Fees drivers kept from the cash for orders delivered today. */
+  driverFeesCents: number;
+  drivers: DriverRow[];
   floatCents: number;
   expectedCashCents: number;
 }
@@ -86,16 +107,32 @@ export function dayReport(orders: ReportOrder[], events: ReportEvent[], floatCen
   const refundCents = refunds.reduce((s, e) => s + e.amountCents, 0);
   const open = orders.filter((o) => isOpen(o.totals));
 
+  const drivers = new Map<string, DriverRow>();
+  const driver = (name: string) => {
+    const row = drivers.get(name) ?? { name, orders: 0, collectedCents: 0, feesCents: 0, handInCents: 0 };
+    drivers.set(name, row);
+    return row;
+  };
+  for (const e of events) {
+    if (!e.driverName) continue;
+    if (e.kind === "delivered") {
+      driver(e.driverName).orders += 1;
+      driver(e.driverName).feesCents += e.amountCents;
+    } else if (e.kind === "payment") driver(e.driverName).collectedCents += e.amountCents;
+  }
+  for (const d of drivers.values()) d.handInCents = d.collectedCents - d.feesCents;
+  const driverFeesCents = events.filter((e) => e.kind === "delivered").reduce((s, e) => s + e.amountCents, 0);
+
   return {
     ordersCount: sold.length,
     grossCents: sum(sold, (t) => t.subtotalCents),
     discountCents: sum(sold, (t) => t.discountCents),
     deliveryFeeCents: sum(sold, (t) => t.deliveryFeeCents),
-    netCents: sum(sold, (t) => t.totalCents),
+    netCents: sum(sold, (t) => t.foodCents),
     taxIncludedCents: sum(sold, (t) => t.taxIncludedCents),
     byType: ORDER_TYPES.map((type) => {
       const ofType = sold.filter((o) => o.type === type);
-      return { type, count: ofType.length, netCents: sum(ofType, (t) => t.totalCents) };
+      return { type, count: ofType.length, netCents: sum(ofType, (t) => t.foodCents) };
     }),
     cashCents,
     cashCount: payments.length,
@@ -117,8 +154,10 @@ export function dayReport(orders: ReportOrder[], events: ReportEvent[], floatCen
       .filter((o) => o.type !== "delivery" && o.leftUnpaidBy === null)
       .map((o) => ({ id: o.id, number: o.number, customerName: o.customerName, balanceCents: o.totals.balanceCents })),
     items: [...items.values()].sort((a, b) => b.halves - a.halves || a.nameAr.localeCompare(b.nameAr, "ar")),
+    driverFeesCents,
+    drivers: [...drivers.values()].sort((a, b) => a.name.localeCompare(b.name, "ar")),
     floatCents,
-    expectedCashCents: floatCents + cashCents - refundCents,
+    expectedCashCents: floatCents + cashCents - refundCents - driverFeesCents,
   };
 }
 

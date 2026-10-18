@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type OrderDetail, type OrderSummary } from "../api";
 import { pounds } from "../format";
-import { usePoll } from "../usePoll";
+import { useLiveOrders } from "../useLiveOrders";
 import { moneyError, StatusBadge, TotalsBox } from "./money";
 import { PayDialog } from "./PayDialog";
 import { ReasonDialog } from "./ReasonDialog";
@@ -27,7 +27,7 @@ export function TodayOrders() {
   const [selected, setSelected] = useState<string | null>(null);
 
   const load = useCallback(async () => setOrders(await api.todayOrders().catch(() => [])), []);
-  usePoll(load, 10_000);
+  useLiveOrders(load, 10_000);
 
   const shown = orders?.filter((o) => inFilter[filter](o.totals.status)) ?? [];
   const count = (f: Filter) => orders?.filter((o) => inFilter[f](o.totals.status)).length ?? 0;

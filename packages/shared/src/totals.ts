@@ -17,8 +17,10 @@ export interface OrderTotals {
   subtotalCents: Cents;
   discountCents: Cents;
   deliveryFeeCents: Cents;
+  /** What the food comes to after the discount: the restaurant's sale. The delivery fee goes to the driver. */
+  foodCents: Cents;
   totalCents: Cents;
-  /** Tax already inside the total (prices include it); shown, never added. */
+  /** Tax already inside the food price (prices include it); shown, never added. Not charged on the delivery fee. */
   taxIncludedCents: Cents;
   paidCents: Cents;
   balanceCents: Cents;
@@ -64,7 +66,8 @@ export function orderTotals(subtotalCents: number, events: MoneyEvent[], taxRate
     else voided = true;
   }
   discount = Math.min(discount, subtotalCents);
-  const total = subtotalCents - discount + fee;
+  const food = subtotalCents - discount;
+  const total = food + fee;
   const net = paid - refunded;
 
   let status: OrderStatus;
@@ -78,8 +81,9 @@ export function orderTotals(subtotalCents: number, events: MoneyEvent[], taxRate
     subtotalCents: cents(subtotalCents),
     discountCents: cents(discount),
     deliveryFeeCents: cents(fee),
+    foodCents: cents(food),
     totalCents: cents(total),
-    taxIncludedCents: includedTax(total, taxRateBp),
+    taxIncludedCents: includedTax(food, taxRateBp),
     paidCents: cents(net),
     balanceCents: cents(status === "voided" || status === "refunded" ? 0 : Math.max(0, total - net)),
     status,

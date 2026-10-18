@@ -136,12 +136,12 @@ const zPaper: DayReportPaper = {
     grossCents: 680_000,
     discountCents: 8_500,
     deliveryFeeCents: 30_000,
-    netCents: 701_500,
-    taxIncludedCents: 33_500,
+    netCents: 671_500,
+    taxIncludedCents: 32_000,
     byType: [
       { type: "dine_in", count: 2, netCents: 425_000 },
       { type: "pickup", count: 2, netCents: 170_000 },
-      { type: "delivery", count: 1, netCents: 106_500 },
+      { type: "delivery", count: 1, netCents: 76_500 },
     ],
     cashCents: 520_000,
     cashCount: 3,
@@ -156,8 +156,10 @@ const zPaper: DayReportPaper = {
       { nameAr: "بيتزا ذرة", sizeAr: "وسط", halves: 5 },
       { nameAr: "بيتزا السلطان", sizeAr: "وسط", halves: 1 },
     ],
+    driverFeesCents: 20_000,
+    drivers: [{ name: "أبو علي", orders: 1, collectedCents: 120_000, feesCents: 20_000, handInCents: 100_000 }],
     floatCents: 50_000,
-    expectedCashCents: 245_000,
+    expectedCashCents: 225_000,
   },
   count: { notes: [{ pounds: 500, count: 4 }, { pounds: 100, count: 4 }], otherCents: 3_000, countedCents: 243_000, differenceCents: -2_000 },
 };
@@ -166,9 +168,12 @@ describe("X and Z reports", () => {
   it("shows the sales, the cash expected, the count and the difference", async () => {
     const lines = texts(reportLines(zPaper, store));
     expect(lines.some((l) => l.includes("تقرير Z رقم") && l.includes("3"))).toBe(true);
-    expect(lines).toContain("الصافي | 7,015 ل.س");
+    expect(lines).toContain("الصافي | 6,715 ل.س");
+    expect(lines).toContain("أجرة التوصيل (للسائقين) | 300");
+    expect(lines.some((l) => l.startsWith("أبو علي (") && l.endsWith(" | 1,000"))).toBe(true);
+    expect(lines).toContain("− أجرة السائقين | 200");
     expect(lines).toContain("الفرق (نقص) | -20");
-    expect(lines).toContain("المتوقع في الصندوق | 2,450 ل.س");
+    expect(lines).toContain("المتوقع في الصندوق | 2,250 ل.س");
     expect(lines).toContain("بيتزا ذرة · وسط | 2½");
     expect(lines).toContain("#6 · أم علي | 950");
     await save("z-report-sample.png", renderReport(zPaper, store, 576).canvas);

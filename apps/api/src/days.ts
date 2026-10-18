@@ -20,6 +20,7 @@ import {
   type DayReport,
   type DayReportPaper,
   dayReport,
+  driverOf,
   type MoneyEvent,
   type OrderTotals,
   orderTotals,
@@ -46,6 +47,8 @@ export interface DayOrder {
   totals: OrderTotals;
   carried: boolean;
   leftUnpaid: boolean;
+  /** All of the order's events, oldest first. */
+  events: EventRow[];
 }
 
 type EventRow = typeof orderEvents.$inferSelect;
@@ -114,7 +117,7 @@ export function createDayStore(db: Db, tenantId: string, timeZone: string, setti
     for (const e of events) byOrder.set(e.orderId, [...(byOrder.get(e.orderId) ?? []), e]);
     const today = inDay(day);
 
-    const list: (DayOrder & { events: EventRow[] })[] = [];
+    const list: DayOrder[] = [];
     for (const order of all) {
       const evs = byOrder.get(order.id) ?? [];
       const totals = orderTotals(order.totalCents, evs.map(toMoneyEvent).filter((e) => e !== null), order.taxRateBp);
@@ -158,8 +161,16 @@ export function createDayStore(db: Db, tenantId: string, timeZone: string, setti
       };
     });
     const reportEvents: ReportEvent[] = events
-      .filter((e): e is EventRow & { kind: ReportEvent["kind"] } => e.kind === "payment" || e.kind === "refund" || e.kind === "void")
-      .map((e) => ({ orderId: e.orderId, number: numbers.get(e.orderId) ?? 0, kind: e.kind, amountCents: e.amountCents ?? 0, staffName: name(e.staffId), reason: e.reason }));
+      .filter((e): e is EventRow & { kind: ReportEvent["kind"] } => e.kind === "payment" || e.kind === "refund" || e.kind === "void" || e.kind === "delivered")
+      .map((e) => ({
+        orderId: e.orderId,
+        number: numbers.get(e.orderId) ?? 0,
+        kind: e.kind,
+        amountCents: e.amountCents ?? 0,
+        staffName: name(e.staffId),
+        reason: e.reason,
+        driverName: driverOf(e.data)?.driverName ?? null,
+      }));
     return { list, report: dayReport(reportOrders, reportEvents, day.floatCents) };
   }
 

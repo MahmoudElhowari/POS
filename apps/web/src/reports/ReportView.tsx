@@ -55,15 +55,16 @@ export function ReportView({ report: r, count }: { report: DayReport; count?: Dr
         <Row label={t("reports.orders")} value={r.ordersCount} />
         <Row label={t("reports.gross")} value={pounds(r.grossCents)} />
         <Row label={t("reports.discounts")} value={minus(r.discountCents)} />
-        <Row label={t("reports.fees")} value={pounds(r.deliveryFeeCents)} />
         <Row label={t("reports.net")} value={money(r.netCents)} strong />
         <Row label={t("reports.tax")} value={money(r.taxIncludedCents)} />
+        <Row label={t("reports.fees")} value={pounds(r.deliveryFeeCents)} />
       </Section>
 
       <Section title={t("reports.drawer")}>
         <Row label={t("reports.floatRow")} value={pounds(r.floatCents)} />
         <Row label={t("reports.cashIn")} value={pounds(r.cashCents)} />
         <Row label={t("reports.refundsOut")} value={pounds(r.refundCents)} />
+        <Row label={t("reports.driverFeesOut")} value={pounds(r.driverFeesCents ?? 0)} />
         <Row label={t("reports.expected")} value={money(r.expectedCashCents)} strong />
         {count && (
           <>
@@ -87,6 +88,18 @@ export function ReportView({ report: r, count }: { report: DayReport; count?: Dr
         <Row label={t("reports.cash", { n: r.cashCount })} value={pounds(r.cashCents)} />
         <Row label={t("reports.refunds", { n: r.refundCount })} value={minus(r.refundCents)} />
       </Section>
+
+      {/* Reports frozen before Milestone 7 have no drivers. */}
+      {(r.drivers ?? []).length > 0 && (
+        <Section title={t("reports.drivers")}>
+          {r.drivers.map((d) => (
+            <div key={d.name} className="flex flex-col py-1">
+              <Row label={t("reports.driverRow", { name: d.name, n: d.orders })} value={d.handInCents < 0 ? `-${pounds(-d.handInCents)}` : pounds(d.handInCents)} strong />
+              <span className="text-sm text-neutral-600">{t("reports.driverDetail", { collected: pounds(d.collectedCents), fees: pounds(d.feesCents) })}</span>
+            </div>
+          ))}
+        </Section>
+      )}
 
       {r.voids.length > 0 && (
         <Section title={`${t("reports.voids")} (${r.voids.length})`}>

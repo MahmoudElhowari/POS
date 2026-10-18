@@ -25,7 +25,8 @@
     "signOut": "Sign out",
     "order": "New order",
     "today": "Today's orders",
-    "reports": "Reports"
+    "reports": "Reports",
+    "delivery": "Delivery"
   },
   "pin": {
     "title": "Enter your PIN",
@@ -212,7 +213,10 @@
       "payment": "Cash payment",
       "void": "Void",
       "refund": "Refund",
-      "left_unpaid": "Left unpaid"
+      "left_unpaid": "Left unpaid",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered",
+      "returned": "Brought back"
     },
     "approvedBy": "approved by {{name}}",
     "pay": "Pay",
@@ -324,7 +328,7 @@
     "orders": "Orders",
     "gross": "Sales before discounts",
     "discounts": "Discounts",
-    "fees": "Delivery fees",
+    "fees": "Delivery fees (drivers)",
     "net": "Net",
     "tax": "Includes tax",
     "byType": "By order type",
@@ -380,7 +384,11 @@
       "by": "Closed by {{name}}",
       "reprint": "Reprint",
       "back": "Back"
-    }
+    },
+    "drivers": "Drivers",
+    "driverFeesOut": "− Drivers' fees",
+    "driverRow": "{{name}} ({{n}})",
+    "driverDetail": "Collected {{collected}} · fees {{fees}}"
   },
   "audit": {
     "day": "Business day",
@@ -401,7 +409,67 @@
       "staff_changed": "Staff changed",
       "prices_edit": "Price edited",
       "prices_bulk": "Bulk price change",
-      "prices_import": "Menu loaded"
+      "prices_import": "Menu loaded",
+      "out_for_delivery": "Out for delivery",
+      "delivered": "Delivered",
+      "returned": "Brought back",
+      "driver_added": "Driver added",
+      "driver_changed": "Driver changed"
     }
+  },
+  "drivers": {
+    "title": "Drivers",
+    "help": "Names the cashier picks from on the delivery board. Drivers need no PIN.",
+    "name": "Driver name",
+    "add": "Add driver",
+    "added": "Driver added",
+    "duplicate": "A driver with this name exists",
+    "badName": "Type the driver's name"
+  },
+  "delivery": {
+    "waiting": "Waiting for a driver",
+    "out": "With a driver",
+    "done": "Delivered",
+    "noneWaiting": "No orders waiting",
+    "noneOut": "No order is out right now",
+    "sentAt": "Sent",
+    "minutes": "{{n}} min ago",
+    "outFor": "out {{n}} min",
+    "collect": "To collect",
+    "nothingToCollect": "Paid, nothing to collect",
+    "pickDriver": "Pick the driver, then the orders",
+    "noDrivers": "No drivers yet. The admin adds them under Menu › Staff.",
+    "delivered": "Delivered",
+    "returned": "Brought back",
+    "returnedDone": "Order {{n}} is waiting again",
+    "deliveredTitle": "Order {{n}} delivered",
+    "driverKeeps": "Delivery fee kept by the driver",
+    "cashFromDriver": "Cash from the driver (SYP)",
+    "deliveredPaid": "Delivered and paid",
+    "deliveredUnpaid": "Delivered, not paid",
+    "deliveredDone": "Order {{n}} delivered",
+    "deliveredChange": "Order {{n}} delivered · change for the driver {{change}} SYP",
+    "back": "Back",
+    "summary": "Drivers today",
+    "driver": "Driver",
+    "ordersDelivered": "Delivered",
+    "collected": "Collected",
+    "fees": "Fees",
+    "handIn": "Hands in",
+    "stillOut": "Still out",
+    "errors": {
+      "not_found": "Order not found",
+      "not_delivery": "Not a delivery order",
+      "voided": "The order is voided",
+      "not_waiting": "This order is already out",
+      "not_out": "This order is not with a driver",
+      "no_driver": "This driver is not available",
+      "duplicate": "Pick each order once",
+      "bad_amount": "Type the amount in pounds",
+      "paid": "The order is fully paid",
+      "server": "Could not connect, try again"
+    },
+    "sendOut": "Out for delivery ({{count}})",
+    "sentOut": "Out with {{name}}: {{count}}"
   }
 }

@@ -4,6 +4,7 @@ import { type AdminMenu, api } from "../api";
 import { Addons } from "./Addons";
 import { AuditLog } from "./AuditLog";
 import { BulkPrices } from "./BulkPrices";
+import { DriversList } from "./DriversList";
 import { MenuItems } from "./MenuItems";
 import { SettingsForm } from "./SettingsForm";
 import { StaffList } from "./StaffList";
@@ -40,7 +41,12 @@ export function AdminScreen() {
       {menu && tab === "items" && <MenuItems categories={menu.categories} addons={menu.addons} reload={reload} />}
       {menu && tab === "addons" && <Addons addons={menu.addons} reload={reload} />}
       {tab === "bulk" && <BulkPrices reload={reload} />}
-      {tab === "staff" && <StaffList />}
+      {tab === "staff" && (
+        <div className="flex flex-col gap-8">
+          <StaffList />
+          <DriversList />
+        </div>
+      )}
       {tab === "settings" && <SettingsForm />}
       {tab === "audit" && <AuditLog />}
     </section>

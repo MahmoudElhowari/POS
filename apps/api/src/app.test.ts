@@ -4,6 +4,7 @@ import { type AppDeps, createApp } from "./app.js";
 import { createLoginLimiter } from "./auth/limiter.js";
 import type { AuthStore, SessionStaff } from "./auth/store.js";
 import { DayRefused, type DayStore } from "./days.js";
+import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { MenuStore } from "./menu/store.js";
 import type { MoneyStore } from "./orders/money.js";
@@ -124,6 +125,30 @@ function fakeDays(): DayStore {
 
 const auditCalls: unknown[][] = [];
 
+const deliveryCalls: unknown[][] = [];
+function fakeDelivery(): DeliveryStore {
+  const record =
+    (name: string, result: unknown = undefined) =>
+    async (...args: unknown[]) => {
+      deliveryCalls.push([name, ...args]);
+      return result as never;
+    };
+  return {
+    board: record("board", { orders: [], drivers: [], summary: [] }),
+    out: async (...args: unknown[]) => {
+      deliveryCalls.push(["out", ...args]);
+      if ((args[0] as string[]).includes(GONE)) throw new DeliveryRefused("not_waiting");
+    },
+    delivered: record("delivered", { totals: {}, changeCents: 0 }),
+    returned: record("returned"),
+    drivers: record("drivers", []),
+    addDriver: record("addDriver", "d-1"),
+    updateDriver: record("updateDriver", true),
+  } as unknown as DeliveryStore;
+}
+const GONE = "99999999-9999-4999-8999-999999999999";
+let ordersChanges = 0;
+
 let menuChanges = 0;
 
 async function call(method: string, path: string, opts: { deps?: Partial<AppDeps>; token?: string; body?: unknown } = {}) {
@@ -140,7 +165,9 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     orders: fakeOrders(),
     money: fakeMoney(),
     settings: fakeSettings(),
+    delivery: fakeDelivery(),
     menuChanged: () => menuChanges++,
+    ordersChanged: () => ordersChanges++,
     ...opts.deps,
   });
   const server = app.listen(0);
@@ -383,5 +410,45 @@ describe("close of day", () => {
   it("keeps the audit log for admins", async () => {
     expect((await call("GET", "/admin/audit", { token: "t-3333" })).status).toBe(403);
     expect((await call("GET", "/admin/audit", { token: "t-1111" })).status).toBe(200);
+  });
+});
+
+describe("delivery board", () => {
+  const order = "11111111-1111-4111-8111-111111111111";
+  const driver = "22222222-2222-4222-8222-222222222222";
+
+  it("is open to every signed-in role", async () => {
+    expect((await call("GET", "/delivery/board")).status).toBe(401);
+    expect((await call("GET", "/delivery/board", { token: "t-2222" })).status).toBe(200);
+  });
+
+  it("sends orders out with a driver and tells the other tablets", async () => {
+    const before = ordersChanges;
+    const res = await call("POST", "/delivery/out", { token: "t-2222", body: { driverId: driver, orderIds: [order] } });
+    expect(res.status).toBe(204);
+    expect(deliveryCalls.at(-1)).toEqual(["out", [order], driver, "s-cash"]);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(ordersChanges).toBe(before + 1);
+  });
+
+  it("refuses an order that is already out", async () => {
+    const res = await call("POST", "/delivery/out", { token: "t-2222", body: { driverId: driver, orderIds: [GONE] } });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "not_waiting" });
+  });
+
+  it("marks an order delivered with the cash the driver brought", async () => {
+    expect((await call("POST", `/delivery/orders/${order}/delivered`, { token: "t-2222", body: { tenderedPounds: 1300 } })).status).toBe(200);
+    expect(deliveryCalls.at(-1)).toEqual(["delivered", order, 1300, "s-cash"]);
+    expect((await call("POST", `/delivery/orders/${order}/delivered`, { token: "t-2222", body: {} })).status).toBe(200);
+    expect(deliveryCalls.at(-1)).toEqual(["delivered", order, null, "s-cash"]);
+  });
+
+  it("lets only the admin manage drivers", async () => {
+    expect((await call("POST", "/admin/drivers", { token: "t-3333", body: { name: "أبو علي" } })).status).toBe(403);
+    const res = await call("POST", "/admin/drivers", { token: "t-1111", body: { name: "أبو علي" } });
+    expect(res.status).toBe(201);
+    expect(await res.json()).toEqual({ id: "d-1" });
+    expect((await call("PATCH", `/admin/drivers/${driver}`, { token: "t-1111", body: { active: false } })).status).toBe(204);
   });
 });

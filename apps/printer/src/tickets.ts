@@ -153,9 +153,10 @@ export function reportLines(p: DayReportPaper, store: PaperStore): Line[] {
     { kind: "row", start: "عدد الطلبات", end: String(r.ordersCount), size: 26 },
     { kind: "row", start: "المبيعات قبل الخصم", end: amount(r.grossCents), size: 26 },
     { kind: "row", start: "الخصومات", end: r.discountCents ? `-${amount(r.discountCents)}` : "0", size: 26 },
-    { kind: "row", start: "أجرة التوصيل", end: amount(r.deliveryFeeCents), size: 26 },
     { kind: "row", start: "الصافي", end: syp(r.netCents), size: 32, bold: true },
     text(`يشمل الضريبة: ${syp(r.taxIncludedCents)}`, 24),
+    // The fees belong to the drivers, so they sit outside the restaurant's sales.
+    { kind: "row", start: "أجرة التوصيل (للسائقين)", end: amount(r.deliveryFeeCents), size: 26 },
     ...heading("حسب نوع الطلب"),
     ...r.byType.map((b): Line => ({ kind: "row", start: `${TYPE_AR[b.type]} (${ltr(String(b.count))})`, end: amount(b.netCents), size: 26 })),
     ...heading("المدفوعات"),
@@ -178,6 +179,17 @@ export function reportLines(p: DayReportPaper, store: PaperStore): Line[] {
   unpaid("توصيل غير مدفوع يُرحّل لليوم التالي", r.carried);
   unpaid("تُرك غير مدفوع", r.leftUnpaid);
   unpaid("غير مدفوع ولم يُسوَّ", r.unresolved);
+  // Reports frozen before Milestone 7 have no drivers.
+  const drivers = r.drivers ?? [];
+  if (drivers.length) {
+    out.push(...heading("السائقون"));
+    for (const d of drivers) {
+      out.push(
+        { kind: "row", start: `${d.name} (${ltr(String(d.orders))})`, end: d.handInCents < 0 ? signed(d.handInCents) : amount(d.handInCents), size: 26, bold: true },
+        text(`استلم ${amount(d.collectedCents)} · أجرته ${amount(d.feesCents)}`, 22),
+      );
+    }
+  }
   if (r.items.length) {
     out.push(...heading("الأصناف المباعة"));
     for (const i of r.items) out.push({ kind: "row", start: `${i.nameAr}${i.sizeAr ? ` · ${i.sizeAr}` : ""}`, end: halvesText(i.halves), size: 24 });
@@ -188,6 +200,7 @@ export function reportLines(p: DayReportPaper, store: PaperStore): Line[] {
     { kind: "row", start: "الرصيد الافتتاحي", end: amount(r.floatCents), size: 26 },
     { kind: "row", start: "+ النقد المستلم", end: amount(r.cashCents), size: 26 },
     { kind: "row", start: "− المبالغ المستردة", end: amount(r.refundCents), size: 26 },
+    { kind: "row", start: "− أجرة السائقين", end: amount(r.driverFeesCents ?? 0), size: 26 },
     { kind: "row", start: "المتوقع في الصندوق", end: syp(r.expectedCashCents), size: 30, bold: true },
   );
   if (p.count) {
