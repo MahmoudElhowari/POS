@@ -13,6 +13,8 @@ import { menuSeed } from "./menu/types.js";
 import { createMoneyStore } from "./orders/money.js";
 import { createOrderStore } from "./orders/store.js";
 import { createPrintStore } from "./prints.js";
+import { createAuditLog } from "./audit.js";
+import { createDayStore } from "./days.js";
 import { createSettingsStore } from "./settings.js";
 
 const port = Number(process.env.API_PORT ?? 3000);
@@ -36,6 +38,7 @@ for (;;) {
 const menu = createMenuStore(db, tenantId);
 const auth = createAuthStore(db, tenantId);
 const settings = createSettingsStore(db, tenantId);
+const days = createDayStore(db, tenantId, timeZone, settings);
 
 // First start in a new store: load the menu file and create the admin.
 if (await menu.isEmpty()) {
@@ -66,9 +69,11 @@ const app = createApp({
   auth,
   limiter: createLoginLimiter(),
   staff: createStaffStore(db, tenantId),
-  orders: createOrderStore(db, tenantId, menu, timeZone, settings),
-  money: createMoneyStore(db, tenantId, timeZone, settings),
+  orders: createOrderStore(db, tenantId, menu, days, settings),
+  money: createMoneyStore(db, tenantId, days, settings),
   settings,
+  days,
+  audit: createAuditLog(db, tenantId),
   menuChanged: () => io.emit("menu.changed"),
 });
 

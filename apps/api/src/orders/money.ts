@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { type Db, type Order, orderEvents, orderLines, orders, payments, printJobs, staff } from "@pos/db";
-import { cashTender, type MoneyEvent, type OrderTotals, orderTotals, percentOf } from "@pos/shared";
+import { cashTender, type OrderTotals, orderTotals, percentOf } from "@pos/shared";
+import { type DayStore, toMoneyEvent } from "../days.js";
 import type { SettingsStore } from "../settings.js";
 import { customerReceipt, kitchenTicket } from "./tickets.js";
 
@@ -25,6 +26,9 @@ export interface OrderSummary {
   tableNo: number | null;
   customerName: string;
   sentAt: string;
+  businessDate: string;
+  /** An unpaid delivery from an earlier day. */
+  carried: boolean;
   totals: OrderTotals;
 }
 
@@ -41,19 +45,11 @@ export interface OrderEventView {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const toMoneyEvent = (e: { kind: string; amountCents: number | null }): MoneyEvent | null => {
-  if (e.kind === "void") return { kind: "void" };
-  if (e.kind === "discount" || e.kind === "delivery_fee" || e.kind === "payment" || e.kind === "refund") {
-    return { kind: e.kind, amountCents: e.amountCents ?? 0 };
-  }
-  return null;
-};
-
 /**
  * Payments, discounts, delivery fees, voids and refunds for one restaurant.
  * Each is a new order_events row; orders and lines are never changed.
  */
-export function createMoneyStore(db: Db, tenantId: string, timeZone: string, settings: SettingsStore) {
+export function createMoneyStore(db: Db, tenantId: string, days: DayStore, settings: SettingsStore) {
   async function load(tx: Tx | Db, orderId: string, lock = false) {
     if (!UUID.test(orderId)) throw new MoneyRefused("not_found");
     const q = tx.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.tenantId, tenantId)));
@@ -113,40 +109,18 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
   }
 
   return {
-    /** Orders sent on the store's current day, newest first. */
+    /** The open day's orders, newest first, then deliveries carried over from earlier days. */
     async today(): Promise<OrderSummary[]> {
-      const today = sql`(now() at time zone ${timeZone})::date`;
-      const rows = await db
-        .select()
-        .from(orders)
-        .where(and(eq(orders.tenantId, tenantId), eq(orders.businessDate, today)))
-        .orderBy(desc(orders.number));
-      if (!rows.length) return [];
-      const events = await db
-        .select({ orderId: orderEvents.orderId, kind: orderEvents.kind, amountCents: orderEvents.amountCents })
-        .from(orderEvents)
-        .where(
-          and(
-            eq(orderEvents.tenantId, tenantId),
-            sql`${orderEvents.orderId} in (select id from orders where tenant_id = ${tenantId} and business_date = ${today})`,
-          ),
-        )
-        .orderBy(asc(orderEvents.createdAt), asc(orderEvents.id));
-      return rows.map((o) => ({
+      return (await days.today()).map(({ order: o, totals, carried }) => ({
         id: o.id,
         number: o.number,
         type: o.type,
         tableNo: o.tableNo,
         customerName: o.customerName,
         sentAt: o.sentAt.toISOString(),
-        totals: orderTotals(
-          o.totalCents,
-          events
-            .filter((e) => e.orderId === o.id)
-            .map(toMoneyEvent)
-            .filter((e) => e !== null),
-          o.taxRateBp,
-        ),
+        businessDate: o.businessDate,
+        carried,
+        totals,
       }));
     },
 
@@ -170,6 +144,7 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
 
     async discount(orderId: string, input: { percentBp?: number; amountPounds?: number }, staffId: string, approvedBy: string) {
       return db.transaction(async (tx) => {
+        const day = await days.ensureOpen(tx);
         const { totals } = await load(tx, orderId, true);
         assertOpen(totals);
         const amount = input.percentBp !== undefined ? percentOf(totals.subtotalCents, input.percentBp) : (input.amountPounds ?? 0) * 100;
@@ -180,6 +155,7 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
           orderId,
           kind: "discount",
           staffId,
+          dayId: day.id,
           approvedBy,
           amountCents: amount,
           // "coupon" is reserved for coupon codes later.
@@ -191,10 +167,11 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
 
     async deliveryFee(orderId: string, amountPounds: number, staffId: string) {
       return db.transaction(async (tx) => {
+        const day = await days.ensureOpen(tx);
         const { order, totals } = await load(tx, orderId, true);
         if (order.type !== "delivery") throw new MoneyRefused("not_delivery");
         assertOpen(totals);
-        await tx.insert(orderEvents).values({ tenantId, orderId, kind: "delivery_fee", staffId, amountCents: amountPounds * 100 });
+        await tx.insert(orderEvents).values({ tenantId, orderId, kind: "delivery_fee", staffId, amountCents: amountPounds * 100, dayId: day.id });
         return (await load(tx, orderId)).totals;
       });
     },
@@ -202,6 +179,7 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
     /** Cash payment. Prints the receipt once the order is fully paid. */
     async payCash(orderId: string, tenderedPounds: number, staffId: string) {
       return db.transaction(async (tx) => {
+        const day = await days.ensureOpen(tx);
         const { totals } = await load(tx, orderId, true);
         if (totals.status === "voided") throw new MoneyRefused("voided");
         if (totals.status === "refunded") throw new MoneyRefused("refunded");
@@ -210,7 +188,7 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
         const { appliedCents, changeCents } = cashTender(totals.balanceCents, tenderedPounds * 100);
         const [event] = await tx
           .insert(orderEvents)
-          .values({ tenantId, orderId, kind: "payment", staffId, amountCents: appliedCents, data: { method: "cash" } })
+          .values({ tenantId, orderId, kind: "payment", staffId, amountCents: appliedCents, data: { method: "cash" }, dayId: day.id })
           .returning();
         await tx.insert(payments).values({
           tenantId,
@@ -230,11 +208,12 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
     /** Cancels an order nobody has paid for. */
     async void(orderId: string, reason: VoidReason, note: string, staffId: string) {
       return db.transaction(async (tx) => {
+        const day = await days.ensureOpen(tx);
         const { totals } = await load(tx, orderId, true);
         if (totals.status === "voided") throw new MoneyRefused("voided");
         if (totals.status === "refunded") throw new MoneyRefused("refunded");
         if (totals.paidCents > 0) throw new MoneyRefused("has_payments");
-        await tx.insert(orderEvents).values({ tenantId, orderId, kind: "void", staffId, reason, note });
+        await tx.insert(orderEvents).values({ tenantId, orderId, kind: "void", staffId, reason, note, dayId: day.id });
         return (await load(tx, orderId)).totals;
       });
     },
@@ -242,11 +221,12 @@ export function createMoneyStore(db: Db, tenantId: string, timeZone: string, set
     /** Gives back everything paid on an order. */
     async refund(orderId: string, reason: VoidReason, note: string, staffId: string) {
       return db.transaction(async (tx) => {
+        const day = await days.ensureOpen(tx);
         const { totals } = await load(tx, orderId, true);
         if (totals.status === "voided") throw new MoneyRefused("voided");
         if (totals.status === "refunded") throw new MoneyRefused("refunded");
         if (totals.paidCents <= 0) throw new MoneyRefused("not_paid");
-        await tx.insert(orderEvents).values({ tenantId, orderId, kind: "refund", staffId, amountCents: totals.paidCents, reason, note });
+        await tx.insert(orderEvents).values({ tenantId, orderId, kind: "refund", staffId, amountCents: totals.paidCents, reason, note, dayId: day.id });
         return (await load(tx, orderId)).totals;
       });
     },

@@ -1,19 +1,37 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
-import { parsePercentBp, percentText } from "../format";
+import { parsePercentBp, parsePounds, percentText } from "../format";
 
 /** Tax shown on receipts and the receipt's own lines (rule 9: settings, not code). */
 export function SettingsForm() {
   const { t } = useTranslation();
-  const [form, setForm] = useState<{ rate: string; nameAr: string; nameEn: string; phone: string; address: string; footer: string } | null>(null);
+  const [form, setForm] = useState<{
+    rate: string;
+    nameAr: string;
+    nameEn: string;
+    hour: string;
+    notes: string;
+    phone: string;
+    address: string;
+    footer: string;
+  } | null>(null);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void api
       .settings()
-      .then((s) => setForm({ rate: percentText(s.tax.rateBp), nameAr: s.tax.nameAr, nameEn: s.tax.nameEn, ...s.receipt }))
+      .then((s) =>
+        setForm({
+          rate: percentText(s.tax.rateBp),
+          nameAr: s.tax.nameAr,
+          nameEn: s.tax.nameEn,
+          hour: String(s.day.autoCloseHour),
+          notes: s.day.notesPounds.join(", "),
+          ...s.receipt,
+        }),
+      )
       .catch(() => setNotice({ ok: false, text: t("settings.error") }));
   }, [t]);
 
@@ -28,10 +46,16 @@ export function SettingsForm() {
     if (!form) return;
     const rateBp = parsePercentBp(form.rate);
     if (rateBp === null || Number.isNaN(rateBp) || rateBp > 5_000 || !form.nameAr.trim()) return setNotice({ ok: false, text: t("settings.bad") });
+    const hour = parsePounds(form.hour);
+    const notes = form.notes.split(/[,،\s]+/).filter(Boolean).map(parsePounds);
+    if (hour === null || Number.isNaN(hour) || hour > 12 || !notes.length || notes.some((n) => n === null || Number.isNaN(n) || n <= 0)) {
+      return setNotice({ ok: false, text: t("settings.badDay") });
+    }
     setBusy(true);
     try {
       await api.updateSettings({
         tax: { rateBp, nameAr: form.nameAr.trim(), nameEn: form.nameEn.trim() },
+        day: { autoCloseHour: hour, notesPounds: [...new Set(notes as number[])].sort((a, b) => a - b) },
         receipt: { phone: form.phone.trim(), address: form.address.trim(), footer: form.footer.trim() },
       });
       setNotice({ ok: true, text: t("settings.saved") });
@@ -65,6 +89,11 @@ export function SettingsForm() {
         {field("rate", t("settings.taxRate"), { ltr: true, numeric: true })}
         {field("nameAr", t("settings.taxNameAr"))}
         {field("nameEn", t("settings.taxNameEn"), { ltr: true })}
+      </div>
+      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
+        <h3 className="text-lg font-bold">{t("settings.day")}</h3>
+        {field("hour", t("settings.autoCloseHour"), { ltr: true, numeric: true })}
+        {field("notes", t("settings.notes"), { ltr: true })}
       </div>
       <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm">
         <h3 className="text-lg font-bold">{t("settings.receipt")}</h3>

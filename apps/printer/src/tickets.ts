@@ -1,4 +1,4 @@
-import { cents, type CustomerReceipt, formatSyp, type KitchenTicket, type OrderType } from "@pos/shared";
+import { cents, type CustomerReceipt, type DayReportPaper, formatSyp, type KitchenTicket, type OrderType } from "@pos/shared";
 import { type Line, ltr, renderLines } from "./render.js";
 
 // The two order papers. Text on paper is Arabic first; the customer receipt
@@ -120,6 +120,91 @@ export function receiptLines(r: CustomerReceipt, store: PaperStore): Line[] {
   out.push({ kind: "gap", height: 8 }, text(r.footer || "شكراً لزيارتكم", 28, { align: "center" }), { kind: "gap", height: 8 });
   return out;
 }
+
+const REASON_AR: Record<string, string> = { customer_cancelled: "الزبون ألغى", wrong_order: "طلب خاطئ", other: "سبب آخر" };
+
+/** Halves as a count: 5 → "2½", 1 → "½". */
+export function halvesText(halves: number) {
+  const whole = Math.trunc(halves / 2);
+  if (halves % 2 === 0) return String(whole);
+  return whole ? `${whole}½` : "½";
+}
+
+const signed = (c: number) => (c > 0 ? `+${amount(c)}` : c < 0 ? `-${amount(-c)}` : "0");
+
+/** The X report (sales so far) and the Z report (the day closed, with the drawer count). */
+export function reportLines(p: DayReportPaper, store: PaperStore): Line[] {
+  const r = p.report;
+  const opened = when(p.openedAt, store.timeZone);
+  const printed = when(p.printedAt, store.timeZone);
+  const heading = (t: string): Line[] => [{ kind: "gap", height: 6 }, text(t, 30, { bold: true })];
+  const out: Line[] = [
+    text(store.restaurantAr, 44, { bold: true, align: "center" }),
+    text(p.kind === "x" ? "تقرير X · المبيعات حتى الآن" : `تقرير Z رقم ${ltr(String(p.number))} · إغلاق اليوم`, 34, { bold: true, align: "center" }),
+  ];
+  if (p.closeKind === "automatic") out.push(text("أُغلق تلقائياً دون عدّ الصندوق", 26, { bold: true, align: "center" }));
+  if (p.reprint) out.push(text("** نسخة **", 26, { bold: true, align: "center" }));
+  out.push(
+    text(`يوم العمل: ${ltr(p.date)}`, 24),
+    text(`من ${ltr(`${opened.date} ${opened.time}`)} حتى ${ltr(`${printed.date} ${printed.time}`)}`, 24),
+    text(`طبعه: ${p.printedBy}`, 24),
+    { kind: "rule" },
+    ...heading("المبيعات"),
+    { kind: "row", start: "عدد الطلبات", end: String(r.ordersCount), size: 26 },
+    { kind: "row", start: "المبيعات قبل الخصم", end: amount(r.grossCents), size: 26 },
+    { kind: "row", start: "الخصومات", end: r.discountCents ? `-${amount(r.discountCents)}` : "0", size: 26 },
+    { kind: "row", start: "أجرة التوصيل", end: amount(r.deliveryFeeCents), size: 26 },
+    { kind: "row", start: "الصافي", end: syp(r.netCents), size: 32, bold: true },
+    text(`يشمل الضريبة: ${syp(r.taxIncludedCents)}`, 24),
+    ...heading("حسب نوع الطلب"),
+    ...r.byType.map((b): Line => ({ kind: "row", start: `${TYPE_AR[b.type]} (${ltr(String(b.count))})`, end: amount(b.netCents), size: 26 })),
+    ...heading("المدفوعات"),
+    { kind: "row", start: `نقداً (${ltr(String(r.cashCount))})`, end: amount(r.cashCents), size: 26 },
+    { kind: "row", start: `المبالغ المستردة (${ltr(String(r.refundCount))})`, end: r.refundCents ? `-${amount(r.refundCents)}` : "0", size: 26 },
+  );
+  if (r.voids.length) {
+    out.push(...heading(`الطلبات الملغاة (${ltr(String(r.voids.length))})`));
+    for (const v of r.voids) out.push({ kind: "row", start: `#${v.number} · ${REASON_AR[v.reason ?? ""] ?? ""} · ${v.staffName}`, end: amount(v.totalCents), size: 24 });
+  }
+  if (r.discounts.length) {
+    out.push(...heading(`الخصومات (${ltr(String(r.discounts.length))})`));
+    for (const d of r.discounts) out.push({ kind: "row", start: `#${d.number}${d.approvedBy ? ` · بموافقة ${d.approvedBy}` : ""}`, end: amount(d.amountCents), size: 24 });
+  }
+  const unpaid = (title: string, list: { number: number; customerName: string; balanceCents: number }[]) => {
+    if (!list.length) return;
+    out.push(...heading(title));
+    for (const u of list) out.push({ kind: "row", start: `#${u.number} · ${u.customerName}`, end: amount(u.balanceCents), size: 24 });
+  };
+  unpaid("توصيل غير مدفوع يُرحّل لليوم التالي", r.carried);
+  unpaid("تُرك غير مدفوع", r.leftUnpaid);
+  unpaid("غير مدفوع ولم يُسوَّ", r.unresolved);
+  if (r.items.length) {
+    out.push(...heading("الأصناف المباعة"));
+    for (const i of r.items) out.push({ kind: "row", start: `${i.nameAr}${i.sizeAr ? ` · ${i.sizeAr}` : ""}`, end: halvesText(i.halves), size: 24 });
+  }
+  out.push(
+    { kind: "rule" },
+    ...heading("الصندوق"),
+    { kind: "row", start: "الرصيد الافتتاحي", end: amount(r.floatCents), size: 26 },
+    { kind: "row", start: "+ النقد المستلم", end: amount(r.cashCents), size: 26 },
+    { kind: "row", start: "− المبالغ المستردة", end: amount(r.refundCents), size: 26 },
+    { kind: "row", start: "المتوقع في الصندوق", end: syp(r.expectedCashCents), size: 30, bold: true },
+  );
+  if (p.count) {
+    out.push(...heading("العدّ"));
+    for (const n of p.count.notes) out.push({ kind: "row", start: `${ltr(amount(n.pounds * 100))} × ${ltr(String(n.count))}`, end: amount(n.pounds * n.count * 100), size: 24 });
+    if (p.count.otherCents) out.push({ kind: "row", start: "فراطة وأخرى", end: amount(p.count.otherCents), size: 24 });
+    const diff = p.count.differenceCents;
+    out.push(
+      { kind: "row", start: "المعدود", end: syp(p.count.countedCents), size: 30, bold: true },
+      { kind: "row", start: diff > 0 ? "الفرق (زيادة)" : diff < 0 ? "الفرق (نقص)" : "الفرق (مطابق)", end: signed(diff), size: 34, bold: true },
+    );
+  }
+  out.push({ kind: "rule" }, { kind: "gap", height: 8 });
+  return out;
+}
+
+export const renderReport = (p: DayReportPaper, store: PaperStore, width: number) => renderLines(reportLines(p, store), width);
 
 export const renderKitchenTicket = (t: KitchenTicket, store: PaperStore, width: number) => renderLines(kitchenLines(t, store), width);
 export const renderReceipt = (r: CustomerReceipt, store: PaperStore, width: number) => renderLines(receiptLines(r, store), width);

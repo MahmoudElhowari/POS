@@ -24,7 +24,8 @@
     "printer": "Printer test",
     "signOut": "Sign out",
     "order": "New order",
-    "today": "Today's orders"
+    "today": "Today's orders",
+    "reports": "Reports"
   },
   "pin": {
     "title": "Enter your PIN",
@@ -41,7 +42,8 @@
       "addons": "Add-ons",
       "bulk": "Bulk prices",
       "staff": "Staff",
-      "settings": "Settings"
+      "settings": "Settings",
+      "audit": "Audit log"
     },
     "currency": "SYP",
     "noPrice": "No price",
@@ -209,7 +211,8 @@
       "delivery_fee": "Delivery fee",
       "payment": "Cash payment",
       "void": "Void",
-      "refund": "Refund"
+      "refund": "Refund",
+      "left_unpaid": "Left unpaid"
     },
     "approvedBy": "approved by {{name}}",
     "pay": "Pay",
@@ -222,7 +225,8 @@
     "area": "Area",
     "directions": "Address",
     "note": "Note",
-    "close": "Close"
+    "close": "Close",
+    "carried": "From an earlier day"
   },
   "pay": {
     "title": "Pay · order {{number}}",
@@ -298,6 +302,106 @@
     "save": "Save",
     "saved": "Saved",
     "bad": "Check the tax rate (0 to 50) and its name",
-    "error": "Could not save"
+    "error": "Could not save",
+    "day": "Close of day",
+    "autoCloseHour": "Automatic close hour if nobody closes the day (0 to 12)",
+    "notes": "Note values for the cash count (comma separated)",
+    "badDay": "Check the close hour and the note values"
+  },
+  "reports": {
+    "tabs": {
+      "x": "X report",
+      "close": "Close the day",
+      "history": "Past Z reports"
+    },
+    "day": "Business day {{date}} · since {{time}}",
+    "float": "Opening float in the drawer (SYP)",
+    "saveFloat": "Save",
+    "floatSaved": "Opening float saved",
+    "print": "Print X report",
+    "printed": "Sent to the printer",
+    "sales": "Sales",
+    "orders": "Orders",
+    "gross": "Sales before discounts",
+    "discounts": "Discounts",
+    "fees": "Delivery fees",
+    "net": "Net",
+    "tax": "Includes tax",
+    "byType": "By order type",
+    "payments": "Payments",
+    "cash": "Cash ({{n}})",
+    "refunds": "Refunds ({{n}})",
+    "voids": "Voided orders",
+    "discountList": "Discounts given",
+    "approvedBy": "approved by {{name}}",
+    "carried": "Unpaid deliveries carried to the next day",
+    "leftUnpaid": "Left unpaid",
+    "unresolved": "Unpaid, not dealt with",
+    "items": "Items sold",
+    "drawer": "Drawer",
+    "floatRow": "Opening float",
+    "cashIn": "+ Cash taken",
+    "refundsOut": "− Refunds",
+    "expected": "Expected in the drawer",
+    "counted": "Counted",
+    "difference": "Difference",
+    "over": "over",
+    "short": "short",
+    "even": "even",
+    "order": "Order {{n}}",
+    "close": {
+      "step1": "1. Unpaid orders",
+      "step1Hint": "Unpaid deliveries carry over to the next day by themselves. Every other order must be paid, voided or left unpaid.",
+      "allClear": "No orders need a decision",
+      "pay": "Pay",
+      "void": "Void",
+      "leave": "Leave unpaid",
+      "step2": "2. Count the drawer",
+      "count": "Number of {{pounds}} notes",
+      "other": "Coins and other (SYP)",
+      "confirm": "Close the day and print the Z",
+      "confirmHint": "After closing, new orders start a new day from number 1.",
+      "done": "Day closed · Z report {{number}}",
+      "doneHint": "The Z report is printing.",
+      "errors": {
+        "unresolved": "Some unpaid orders still need a decision",
+        "already_closed": "This day was closed from another tablet",
+        "bad_count": "Check the count",
+        "not_unpaid": "This order is no longer unpaid",
+        "is_delivery": "Delivery orders carry over by themselves",
+        "not_found": "Not found",
+        "server": "Could not reach the server"
+      }
+    },
+    "history": {
+      "empty": "No reports yet",
+      "z": "Z {{number}}",
+      "automatic": "Closed automatically, not counted",
+      "by": "Closed by {{name}}",
+      "reprint": "Reprint",
+      "back": "Back"
+    }
+  },
+  "audit": {
+    "day": "Business day",
+    "current": "Today",
+    "empty": "Nothing on this day",
+    "kinds": {
+      "sent": "New order",
+      "discount": "Discount",
+      "delivery_fee": "Delivery fee",
+      "payment": "Cash payment",
+      "void": "Void",
+      "refund": "Refund",
+      "left_unpaid": "Left unpaid",
+      "float_set": "Opening float changed",
+      "day_closed": "Day closed",
+      "settings_changed": "Settings changed",
+      "staff_added": "Staff added",
+      "staff_changed": "Staff changed",
+      "prices_edit": "Price edited",
+      "prices_bulk": "Bulk price change",
+      "prices_import": "Menu loaded"
+    }
   }
 }

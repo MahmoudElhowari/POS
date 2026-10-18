@@ -1,8 +1,8 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import type { CustomerReceipt, KitchenTicket } from "@pos/shared";
-import { kitchenLines, percentText, receiptLines, renderKitchenTicket, renderReceipt } from "./tickets.js";
+import type { CustomerReceipt, DayReportPaper, KitchenTicket } from "@pos/shared";
+import { halvesText, kitchenLines, percentText, receiptLines, renderKitchenTicket, renderReceipt, renderReport, reportLines } from "./tickets.js";
 
 const store = { restaurantAr: "رومانتيكا بيتزا", restaurantEn: "Romantica Pizza", timeZone: "Asia/Damascus" };
 
@@ -119,5 +119,68 @@ describe("customer receipt", () => {
 describe("percentText", () => {
   it("writes basis points as a percent without floats", () => {
     expect([500, 550, 1000, 1250, 5].map(percentText)).toEqual(["5", "5.5", "10", "12.5", "0.05"]);
+  });
+});
+
+const zPaper: DayReportPaper = {
+  kind: "z",
+  number: 3,
+  date: "2026-10-17",
+  openedAt: "2026-10-17T01:00:00Z",
+  printedAt: "2026-10-17T21:30:00Z",
+  printedBy: "مشرف",
+  closeKind: "manual",
+  reprint: false,
+  report: {
+    ordersCount: 5,
+    grossCents: 680_000,
+    discountCents: 8_500,
+    deliveryFeeCents: 30_000,
+    netCents: 701_500,
+    taxIncludedCents: 33_500,
+    byType: [
+      { type: "dine_in", count: 2, netCents: 425_000 },
+      { type: "pickup", count: 2, netCents: 170_000 },
+      { type: "delivery", count: 1, netCents: 106_500 },
+    ],
+    cashCents: 520_000,
+    cashCount: 3,
+    refundCents: 325_000,
+    refundCount: 1,
+    voids: [{ number: 3, reason: "wrong_order", staffName: "سامر", totalCents: 210_000 }],
+    discounts: [{ number: 2, amountCents: 8_500, approvedBy: "مشرف" }],
+    carried: [{ number: 2, customerName: "أبو أحمد", balanceCents: 106_500 }],
+    leftUnpaid: [{ number: 6, customerName: "أم علي", balanceCents: 95_000, staffName: "مشرف" }],
+    unresolved: [],
+    items: [
+      { nameAr: "بيتزا ذرة", sizeAr: "وسط", halves: 5 },
+      { nameAr: "بيتزا السلطان", sizeAr: "وسط", halves: 1 },
+    ],
+    floatCents: 50_000,
+    expectedCashCents: 245_000,
+  },
+  count: { notes: [{ pounds: 500, count: 4 }, { pounds: 100, count: 4 }], otherCents: 3_000, countedCents: 243_000, differenceCents: -2_000 },
+};
+
+describe("X and Z reports", () => {
+  it("shows the sales, the cash expected, the count and the difference", async () => {
+    const lines = texts(reportLines(zPaper, store));
+    expect(lines.some((l) => l.includes("تقرير Z رقم") && l.includes("3"))).toBe(true);
+    expect(lines).toContain("الصافي | 7,015 ل.س");
+    expect(lines).toContain("الفرق (نقص) | -20");
+    expect(lines).toContain("المتوقع في الصندوق | 2,450 ل.س");
+    expect(lines).toContain("بيتزا ذرة · وسط | 2½");
+    expect(lines).toContain("#6 · أم علي | 950");
+    await save("z-report-sample.png", renderReport(zPaper, store, 576).canvas);
+  });
+
+  it("leaves the count off an X report", () => {
+    const lines = texts(reportLines({ ...zPaper, kind: "x", number: null, closeKind: null, count: null }, store));
+    expect(lines[1]).toContain("تقرير X");
+    expect(lines.some((l) => l.startsWith("الفرق"))).toBe(false);
+  });
+
+  it("writes halves as a count", () => {
+    expect([0, 1, 2, 5].map(halvesText)).toEqual(["0", "½", "1", "2½"]);
   });
 });

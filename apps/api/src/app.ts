@@ -4,6 +4,8 @@ import type { LoginLimiter } from "./auth/limiter.js";
 import { PIN_PATTERN } from "./auth/pin.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { AuthStore, Role, SessionStaff } from "./auth/store.js";
+import type { AuditLog } from "./audit.js";
+import { DayRefused, type DayStore } from "./days.js";
 import { NotFound, type MenuStore } from "./menu/store.js";
 import { addonPatch, addonPricePatch, bulkRequest, itemPatch, newItem, sizePatch } from "./menu/types.js";
 import { MoneyRefused, type MoneyStore, VOID_REASONS } from "./orders/money.js";
@@ -31,6 +33,8 @@ export interface AppDeps {
   orders: OrderStore;
   money: MoneyStore;
   settings: SettingsStore;
+  days: DayStore;
+  audit: AuditLog;
   /** Tells order screens to reload the menu (Socket.IO in production). */
   menuChanged: () => void;
 }
@@ -45,6 +49,11 @@ const discountRequest = z.union([
   z.object({ percentBp: z.number().int().min(1).max(10_000), managerPin: z.string().regex(PIN_PATTERN) }),
   z.object({ amountPounds: wholePounds.min(1), managerPin: z.string().regex(PIN_PATTERN) }),
 ]);
+const closeRequest = z.object({
+  dayId: z.string().regex(/^[0-9a-f-]{36}$/i),
+  notes: z.array(z.object({ pounds: z.number().int().min(1).max(1_000_000), count: z.number().int().min(0).max(100_000) })).max(30),
+  otherPounds: wholePounds.default(0),
+});
 const voidRequest = z.object({ reason: z.enum(VOID_REASONS), note: z.string().trim().max(200).default("") });
 const staffPatch = staffInput.partial().extend({ active: z.boolean().optional() });
 
@@ -200,11 +209,17 @@ export function createApp(deps: AppDeps) {
   });
 
   admin.post("/staff", async (req, res) => {
-    res.status(201).json({ id: await deps.staff.create(staffInput.parse(req.body)) });
+    const input = staffInput.parse(req.body);
+    const id = await deps.staff.create(input);
+    // Never the PIN itself in the log.
+    await deps.audit.record(req.staff!.staffId, "staff_added", { id, name: input.name, role: input.role });
+    res.status(201).json({ id });
   });
 
   admin.patch("/staff/:id", async (req, res) => {
-    const found = await deps.staff.update(req.params.id!, defined(staffPatch.parse(req.body)));
+    const { pin, ...patch } = defined(staffPatch.parse(req.body));
+    const found = await deps.staff.update(req.params.id!, { ...patch, ...(pin ? { pin } : {}) });
+    if (found) await deps.audit.record(req.staff!.staffId, "staff_changed", { id: req.params.id, ...patch, pinChanged: Boolean(pin) });
     res.status(found ? 204 : 404).end();
   });
 
@@ -213,8 +228,15 @@ export function createApp(deps: AppDeps) {
   });
 
   admin.patch("/settings", async (req, res) => {
-    await deps.settings.update(defined(settingsPatch.parse(req.body)), req.staff!.staffId);
+    const patch = defined(settingsPatch.parse(req.body));
+    await deps.settings.update(patch, req.staff!.staffId);
+    await deps.audit.record(req.staff!.staffId, "settings_changed", patch);
     res.json(await deps.settings.all());
+  });
+
+  admin.get("/audit", async (req, res) => {
+    const dayId = z.string().max(40).optional().parse(req.query.dayId);
+    res.json(await deps.days.audit(dayId));
   });
 
   app.use("/admin", admin);
@@ -293,6 +315,51 @@ export function createApp(deps: AppDeps) {
 
   app.use("/orders", orders);
 
+  // ── Close of day (Milestone 5): managers and admins ──
+  const reports = express.Router();
+  reports.use(requireRole("admin", "manager"));
+  reports.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
+
+  reports.get("/x", async (_req, res) => {
+    res.json(await deps.days.x());
+  });
+
+  reports.post("/x/print", async (req, res) => {
+    await deps.days.printX(req.staff!.staffId);
+    res.status(202).end();
+  });
+
+  reports.put("/float", async (req, res) => {
+    const { pounds } = z.object({ pounds: wholePounds }).parse(req.body);
+    await deps.days.setFloat(pounds, req.staff!.staffId);
+    res.status(204).end();
+  });
+
+  reports.post("/orders/:id/leave-unpaid", async (req, res) => {
+    const { note } = z.object({ note: z.string().trim().max(200).default("") }).parse(req.body);
+    await deps.days.leaveUnpaid(req.params.id!, note, req.staff!.staffId);
+    res.status(204).end();
+  });
+
+  reports.post("/z", async (req, res) => {
+    res.status(201).json(await deps.days.close(closeRequest.parse(req.body), req.staff!.staffId));
+  });
+
+  reports.get("/z", async (_req, res) => {
+    res.json(await deps.days.closes());
+  });
+
+  reports.get("/z/:id", async (req, res) => {
+    res.json(await deps.days.getClose(req.params.id!));
+  });
+
+  reports.post("/z/:id/print", async (req, res) => {
+    await deps.days.reprintZ(req.params.id!, req.staff!.staffId);
+    res.status(202).end();
+  });
+
+  app.use("/reports", reports);
+
   app.get("/customers", requireRole("admin", "manager", "cashier"), async (req, res) => {
     const phone = z.string().max(20).parse(req.query.phone ?? "");
     res.json(await deps.orders.findCustomers(phone));
@@ -303,6 +370,9 @@ export function createApp(deps: AppDeps) {
     if (err instanceof NotFound) return void res.status(404).json({ error: "not_found" });
     if (err instanceof StaffRefused) return void res.status(409).json({ error: err.code });
     if (err instanceof MoneyRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
+    if (err instanceof DayRefused) {
+      return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code, ...(err.code === "unresolved" ? { orders: err.detail } : {}) });
+    }
     if (err instanceof OrderRefused) return void res.status(409).json({ error: err.code, ...err.detail });
     console.error(err);
     res.status(500).json({ error: "server_error" });

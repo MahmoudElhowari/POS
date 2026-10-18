@@ -67,8 +67,8 @@ function drawLine(ctx: SKRSContext2D, line: Line, y: number, width: number) {
   ctx.textBaseline = "middle";
   const mid = y + lineHeight(line) / 2;
   if (line.kind === "row") {
-    // RTL so "3,225 ل.س" reads number first, as Arabic does; digits stay left to right.
-    ctx.direction = "rtl";
+    // RTL so "3,225 ل.س" reads number first, as Arabic does. A bare number ("-85", "2½") stays left to right.
+    ctx.direction = /[\u0600-\u06FF]/.test(line.end) ? "rtl" : "ltr";
     ctx.textAlign = "left";
     ctx.fillText(line.end, MARGIN, mid);
     const room = width - 2 * MARGIN - ctx.measureText(line.end).width - 16;

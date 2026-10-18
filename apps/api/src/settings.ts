@@ -12,6 +12,12 @@ export const settingsSchema = {
     nameAr: z.string().trim().min(1).max(30),
     nameEn: z.string().trim().max(30),
   }),
+  /** Close of day (Milestone 5): the automatic close hour and the notes in the cash count. */
+  day: z.object({
+    /** If nobody runs a Z, the day ends at this hour, store time (Mahmoud: 4 AM). */
+    autoCloseHour: z.number().int().min(0).max(12),
+    notesPounds: z.array(z.number().int().min(1).max(1_000_000)).min(1).max(20),
+  }),
   /** Extra lines on the customer receipt. */
   receipt: z.object({
     phone: z.string().trim().max(40),
@@ -25,11 +31,13 @@ export type SettingKey = keyof Settings;
 
 export const DEFAULT_SETTINGS: Settings = {
   tax: { rateBp: 500, nameAr: "ضريبة", nameEn: "Tax" },
+  day: { autoCloseHour: 4, notesPounds: [10, 25, 50, 100, 200, 500] },
   receipt: { phone: "", address: "", footer: "" },
 };
 
 export const settingsPatch = z.object({
   tax: settingsSchema.tax.optional(),
+  day: settingsSchema.day.optional(),
   receipt: settingsSchema.receipt.optional(),
 });
 

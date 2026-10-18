@@ -1,4 +1,4 @@
-import type { DraftProblem, OrderDraft, OrderTotals, OrderType } from "@pos/shared";
+import type { DayReport, DraftProblem, OrderDraft, OrderTotals, OrderType } from "@pos/shared";
 
 export type JobStatus = "queued" | "printing" | "done" | "failed";
 
@@ -143,6 +143,9 @@ export interface OrderSummary {
   tableNo: number | null;
   customerName: string;
   sentAt: string;
+  businessDate: string;
+  /** An unpaid delivery from an earlier day. */
+  carried: boolean;
   totals: OrderTotals;
 }
 
@@ -162,7 +165,7 @@ export interface OrderLineView {
 
 export interface OrderEventView {
   id: string;
-  kind: "sent" | "discount" | "delivery_fee" | "payment" | "void" | "refund";
+  kind: "sent" | "discount" | "delivery_fee" | "payment" | "void" | "refund" | "left_unpaid";
   amountCents: number | null;
   staffName: string;
   approvedByName: string | null;
@@ -186,15 +189,63 @@ export interface OrderDetail extends OrderSummary {
 export const VOID_REASONS = ["customer_cancelled", "wrong_order", "other"] as const;
 export type VoidReason = (typeof VOID_REASONS)[number];
 
+export interface XReport {
+  day: { id: string; date: string; openedAt: string; floatCents: number };
+  report: DayReport;
+  notesPounds: number[];
+}
+
+export interface DayCloseSummary {
+  id: string;
+  number: number;
+  dayId: string;
+  date: string;
+  openedAt: string;
+  closedAt: string;
+  kind: "manual" | "automatic";
+  closedBy: string | null;
+  floatCents: number;
+  expectedCents: number;
+  countedCents: number | null;
+  differenceCents: number | null;
+  notes: { pounds: number; count: number }[];
+  otherCents: number;
+  netCents: number;
+}
+
+export interface DayClose extends Omit<DayCloseSummary, "netCents"> {
+  report: DayReport;
+}
+
+export interface AuditEntry {
+  id: string;
+  at: string;
+  kind: string;
+  staffName: string;
+  approvedByName: string | null;
+  orderNumber: number | null;
+  amountCents: number | null;
+  reason: string | null;
+  note: string;
+  details: Record<string, unknown>;
+}
+
 export interface Settings {
   tax: { rateBp: number; nameAr: string; nameEn: string };
+  day: { autoCloseHour: number; notesPounds: number[] };
   receipt: { phone: string; address: string; footer: string };
 }
 
 export class ApiError extends Error {
   constructor(
     readonly status: number,
-    readonly body: { error?: string; retryAfterMs?: number; totalCents?: number; problems?: DraftProblem[] },
+    readonly body: {
+      error?: string;
+      retryAfterMs?: number;
+      totalCents?: number;
+      problems?: DraftProblem[];
+      orders?: DayReport["unresolved"];
+    },
   ) {
     super(`${status} ${body.error ?? ""}`);
   }
@@ -269,6 +320,16 @@ export const api = {
   voidOrder: (id: string, reason: VoidReason, note: string) => request<OrderTotals>("POST", `/orders/${id}/void`, { reason, note }),
   refund: (id: string, reason: VoidReason, note: string) => request<OrderTotals>("POST", `/orders/${id}/refund`, { reason, note }),
   reprint: (id: string, which: "kitchen" | "receipt") => request<void>("POST", `/orders/${id}/reprint`, { which }),
+
+  xReport: () => request<XReport>("GET", "/reports/x"),
+  printX: () => request<void>("POST", "/reports/x/print"),
+  setFloat: (pounds: number) => request<void>("PUT", "/reports/float", { pounds }),
+  leaveUnpaid: (orderId: string, note: string) => request<void>("POST", `/reports/orders/${orderId}/leave-unpaid`, { note }),
+  closeDay: (input: { dayId: string; notes: { pounds: number; count: number }[]; otherPounds: number }) => request<DayClose>("POST", "/reports/z", input),
+  closes: () => request<DayCloseSummary[]>("GET", "/reports/z"),
+  dayClose: (id: string) => request<DayClose>("GET", `/reports/z/${id}`),
+  reprintZ: (id: string) => request<void>("POST", `/reports/z/${id}/print`),
+  audit: (dayId?: string) => request<{ day: { id: string; date: string }; entries: AuditEntry[] }>("GET", `/admin/audit${dayId ? `?dayId=${dayId}` : ""}`),
 
   settings: () => request<Settings>("GET", "/admin/settings"),
   updateSettings: (patch: Partial<Settings>) => request<Settings>("PATCH", "/admin/settings", patch),
