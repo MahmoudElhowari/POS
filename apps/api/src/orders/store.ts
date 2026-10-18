@@ -2,6 +2,7 @@ import { and, desc, eq, like, sql } from "drizzle-orm";
 import { customers, type Db, heldOrders, orderEvents, orderLines, orders, printJobs } from "@pos/db";
 import { type DraftProblem, headerProblems, type OrderDraft, priceDraft } from "@pos/shared";
 import type { DayStore } from "../days.js";
+import { takeStock } from "../inventory.js";
 import type { MenuStore } from "../menu/store.js";
 import type { SettingsStore } from "../settings.js";
 import { kitchenTicket } from "./tickets.js";
@@ -113,6 +114,7 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, days
 
       const { rateBp: taxRateBp } = await settings.get("tax");
       const items = new Map(sellable.categories.flatMap((c) => c.items.map((i) => [i.id, i] as const)));
+      const kinds = new Map(sellable.categories.flatMap((c) => c.items.map((i) => [i.id, c.kind] as const)));
       const addonNames = new Map(sellable.addons.map((a) => [a.key, a] as const));
 
       return db.transaction(async (tx) => {
@@ -187,6 +189,9 @@ export function createOrderStore(db: Db, tenantId: string, menu: MenuStore, days
           }),
         ).returning();
         await tx.insert(orderEvents).values({ tenantId, orderId: order!.id, kind: "sent", staffId, dayId: day.id });
+        // Ready-made goods (cans, boxes) come off the stock with the sale (Milestone 9).
+        const sold = priced.lines.map((p) => ({ itemId: p.line.itemId, categoryKind: kinds.get(p.line.itemId)!, sizeKey: p.line.sizeKey, qty: p.qty }));
+        await takeStock(tx, tenantId, order!.id, draft.type, sold, staffId);
         // The kitchen ticket goes through the queue (rule 4); NOTIFY fires on commit.
         await tx.insert(printJobs).values({ tenantId, printer: "kitchen", kind: "kitchen", payload: kitchenTicket(order!, lines, false) });
         await tx.execute(sql`select pg_notify('print_jobs', ${tenantId})`);

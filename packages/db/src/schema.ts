@@ -208,6 +208,84 @@ export const coupons = pgTable(
 
 export type Coupon = typeof coupons.$inferSelect;
 
+/** Grams, millilitres or pieces: whole numbers, like money in cents. The screen shows kg and litres. */
+export const stockUnit = pgEnum("stock_unit", ["g", "ml", "piece"]);
+
+/** What the restaurant buys and keeps (Milestone 9): flour, cheese, cans, boxes. */
+export const stockItems = pgTable(
+  "stock_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    nameAr: text("name_ar").notNull(),
+    unit: stockUnit("unit").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("stock_items_name").on(t.tenantId, t.nameAr)],
+);
+
+export type StockItem = typeof stockItems.$inferSelect;
+
+/**
+ * A ready-made good that a sale uses up: a menu item (and size), or every item
+ * of a category kind, such as one box for each pizza. Exactly one of `itemId`
+ * and `categoryKind` is set; a null `sizeKey` means any size.
+ */
+export const stockLinks = pgTable(
+  "stock_links",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    stockItemId: uuid("stock_item_id").notNull().references(() => stockItems.id),
+    itemId: uuid("item_id").references(() => menuItems.id),
+    categoryKind: categoryKind("category_kind"),
+    sizeKey: text("size_key"),
+    /** In the stock item's unit, for one of the menu item. */
+    qty: integer("qty").notNull(),
+    /** Only for pickup and delivery (a pizza box). */
+    takeawayOnly: boolean("takeaway_only").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("stock_links_item").on(t.tenantId, t.stockItemId)],
+);
+
+export type StockLink = typeof stockLinks.$inferSelect;
+
+/**
+ * "delivery": stock came in. "count": someone counted the shelf; the row holds
+ * the difference and `data.counted`. "waste": thrown away. "sale": an order
+ * used it. "void": a voided order gave it back.
+ */
+export const stockMoveKind = pgEnum("stock_move_kind", ["delivery", "count", "waste", "sale", "void"]);
+
+/**
+ * Every change to stock, added and never changed (like order events), so the
+ * level is always the sum of `qty`.
+ */
+export const stockMoves = pgTable(
+  "stock_moves",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    stockItemId: uuid("stock_item_id").notNull().references(() => stockItems.id),
+    kind: stockMoveKind("kind").notNull(),
+    /** Signed, in the item's unit: + in, − out. */
+    qty: integer("qty").notNull(),
+    /** What a delivery cost, if typed. */
+    costCents: integer("cost_cents"),
+    supplier: text("supplier").notNull().default(""),
+    note: text("note").notNull().default(""),
+    orderId: uuid("order_id").references(() => orders.id),
+    staffId: uuid("staff_id").notNull().references(() => staff.id),
+    data: jsonb("data").notNull().default(sql`'{}'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("stock_moves_item").on(t.tenantId, t.stockItemId), index("stock_moves_order").on(t.orderId)],
+);
+
+export type StockMove = typeof stockMoves.$inferSelect;
+
 export type MenuCategory = typeof menuCategories.$inferSelect;
 export type MenuItem = typeof menuItems.$inferSelect;
 export type ItemSize = typeof itemSizes.$inferSelect;

@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { type Db, coupons, type Order, orderEvents, orderLines, orders, payments, printJobs, staff } from "@pos/db";
 import { cashTender, couponAmount, couponCode, couponOf, couponRefusal, type OrderTotals, orderTotals, paymentOf, percentOf, type Tender } from "@pos/shared";
 import { type DayStore, toMoneyEvent } from "../days.js";
+import { returnStock } from "../inventory.js";
 import type { SettingsStore } from "../settings.js";
 import { customerReceipt, kitchenTicket } from "./tickets.js";
 
@@ -326,6 +327,7 @@ export function createMoneyStore(db: Db, tenantId: string, days: DayStore, setti
         if (totals.status === "refunded") throw new MoneyRefused("refunded");
         if (totals.paidCents > 0) throw new MoneyRefused("has_payments");
         await tx.insert(orderEvents).values({ tenantId, orderId, kind: "void", staffId, reason, note, dayId: day.id });
+        await returnStock(tx, tenantId, orderId, staffId);
         return (await load(tx, orderId)).totals;
       });
     },

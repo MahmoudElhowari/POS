@@ -8,6 +8,7 @@ import type { AuditLog } from "./audit.js";
 import { CouponRefused, type CouponStore } from "./coupons.js";
 import { DayRefused, type DayStore } from "./days.js";
 import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
+import { type InventoryStore, StockRefused } from "./inventory.js";
 import { NotFound, type MenuStore } from "./menu/store.js";
 import { addonPatch, addonPricePatch, bulkRequest, itemPatch, newItem, sizePatch } from "./menu/types.js";
 import { MoneyRefused, type MoneyStore, VOID_REASONS } from "./orders/money.js";
@@ -39,6 +40,7 @@ export interface AppDeps {
   audit: AuditLog;
   delivery: DeliveryStore;
   coupons: CouponStore;
+  inventory: InventoryStore;
   /** Tells order screens to reload the menu (Socket.IO in production). */
   menuChanged: () => void;
   /** Tells today's orders and the delivery board to reload. */
@@ -83,6 +85,17 @@ const couponInput = z.object({
     .optional(),
   maxUses: z.number().int().min(1).max(1_000_000).nullable().optional(),
   active: z.boolean().optional(),
+});
+/** Whole grams, millilitres or pieces; the screen converts kg and litres. */
+const stockQty = z.number().int().min(1).max(1_000_000_000);
+const stockItemInput = z.object({ nameAr: z.string().trim().min(1).max(60), unit: z.enum(["g", "ml", "piece"]) });
+const stockLinkInput = z.object({
+  stockItemId: z.string().regex(/^[0-9a-f-]{36}$/i),
+  itemId: z.string().regex(/^[0-9a-f-]{36}$/i).nullable().optional(),
+  categoryKind: z.enum(["pizza", "calzone", "other"]).nullable().optional(),
+  sizeKey: z.string().trim().min(1).max(30).nullable().optional(),
+  qty: stockQty,
+  takeawayOnly: z.boolean().optional(),
 });
 const closeRequest = z.object({
   dayId: z.string().regex(/^[0-9a-f-]{36}$/i),
@@ -294,6 +307,23 @@ export function createApp(deps: AppDeps) {
     res.status(found ? 204 : 404).end();
   });
 
+  admin.post("/stock-items", async (req, res) => {
+    res.status(201).json({ id: await deps.inventory.addItem(stockItemInput.parse(req.body), req.staff!.staffId) });
+  });
+
+  admin.patch("/stock-items/:id", async (req, res) => {
+    const patch = defined(stockItemInput.pick({ nameAr: true }).partial().extend({ active: z.boolean().optional() }).parse(req.body));
+    res.status((await deps.inventory.updateItem(req.params.id!, patch, req.staff!.staffId)) ? 204 : 404).end();
+  });
+
+  admin.post("/stock-links", async (req, res) => {
+    res.status(201).json({ id: await deps.inventory.addLink(stockLinkInput.parse(req.body), req.staff!.staffId) });
+  });
+
+  admin.delete("/stock-links/:id", async (req, res) => {
+    res.status((await deps.inventory.removeLink(req.params.id!, req.staff!.staffId)) ? 204 : 404).end();
+  });
+
   admin.get("/settings", async (_req, res) => {
     res.json(await deps.settings.all());
   });
@@ -471,6 +501,38 @@ export function createApp(deps: AppDeps) {
 
   app.use("/reports", reports);
 
+  // ── Inventory (Milestone 9): managers and admins record what comes in, is counted and is thrown away ──
+  const inventory = express.Router();
+  inventory.use(requireRole("admin", "manager"));
+  inventory.param("id", (_req, res, next, id: string) => (UUID.test(id) ? next() : void res.status(404).json({ error: "not_found" })));
+
+  inventory.get("/", async (_req, res) => {
+    res.json(await deps.inventory.report());
+  });
+
+  inventory.get("/items/:id/moves", async (req, res) => {
+    res.json(await deps.inventory.moves(req.params.id!));
+  });
+
+  inventory.post("/items/:id/delivery", async (req, res) => {
+    const { qty, costPounds, supplier } = z
+      .object({ qty: stockQty, costPounds: wholePounds.nullable().default(null), supplier: z.string().trim().max(60).default("") })
+      .parse(req.body);
+    res.json(await deps.inventory.delivery(req.params.id!, qty, costPounds, supplier, req.staff!.staffId));
+  });
+
+  inventory.post("/items/:id/count", async (req, res) => {
+    const { counted } = z.object({ counted: z.number().int().min(0).max(1_000_000_000) }).parse(req.body);
+    res.json(await deps.inventory.count(req.params.id!, counted, req.staff!.staffId));
+  });
+
+  inventory.post("/items/:id/waste", async (req, res) => {
+    const { qty, note } = z.object({ qty: stockQty, note: z.string().trim().max(200).default("") }).parse(req.body);
+    res.json(await deps.inventory.waste(req.params.id!, qty, note, req.staff!.staffId));
+  });
+
+  app.use("/inventory", inventory);
+
   app.get("/customers", requireRole("admin", "manager", "cashier"), async (req, res) => {
     const phone = z.string().max(20).parse(req.query.phone ?? "");
     res.json(await deps.orders.findCustomers(phone));
@@ -480,6 +542,7 @@ export function createApp(deps: AppDeps) {
     if (err instanceof z.ZodError) return void res.status(400).json({ error: "invalid", issues: err.issues });
     if (err instanceof NotFound) return void res.status(404).json({ error: "not_found" });
     if (err instanceof StaffRefused) return void res.status(409).json({ error: err.code });
+    if (err instanceof StockRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof CouponRefused) return void res.status(409).json({ error: err.code });
     if (err instanceof DeliveryRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof MoneyRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
