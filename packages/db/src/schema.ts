@@ -181,6 +181,33 @@ export const drivers = pgTable(
 
 export type Driver = typeof drivers.$inferSelect;
 
+/**
+ * Coupon codes the admin makes (Milestone 8). A coupon used on an order is a
+ * "discount" event naming it, so its uses are counted from the events.
+ */
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: text("tenant_id").notNull(),
+    /** Stored in capitals; the cashier can type it in any case. */
+    code: text("code").notNull(),
+    /** Exactly one of these is set: a % off (basis points) or a fixed amount off. */
+    percentBp: integer("percent_bp"),
+    amountCents: integer("amount_cents"),
+    /** The last business day it works on; null means no end. */
+    endsOn: date("ends_on"),
+    /** How many orders can use it; null means no limit. */
+    maxUses: integer("max_uses"),
+    active: boolean("active").notNull().default(true),
+    createdBy: uuid("created_by").notNull().references(() => staff.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("coupons_code").on(t.tenantId, t.code)],
+);
+
+export type Coupon = typeof coupons.$inferSelect;
+
 export type MenuCategory = typeof menuCategories.$inferSelect;
 export type MenuItem = typeof menuItems.$inferSelect;
 export type ItemSize = typeof itemSizes.$inferSelect;
@@ -331,7 +358,7 @@ export const orderEvents = pgTable(
 
 export const paymentMethod = pgEnum("payment_method", ["cash", "wallet"]);
 
-/** One tender per payment event. Cash only for now; "wallet" is reserved. */
+/** One tender per payment event: cash, or a mobile wallet transfer (Milestone 8). */
 export const payments = pgTable(
   "payments",
   {
@@ -345,6 +372,9 @@ export const payments = pgTable(
     /** What the customer handed over (cash). */
     tenderedCents: integer("tendered_cents").notNull(),
     changeCents: integer("change_cents").notNull().default(0),
+    /** The wallet's key from the "wallets" setting, for a wallet payment. */
+    wallet: text("wallet"),
+    /** The transfer reference the customer showed, for a wallet payment. */
     reference: text("reference"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

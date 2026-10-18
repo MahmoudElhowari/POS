@@ -2,10 +2,12 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, type BoardOrder, type DeliveryBoard as Board } from "../api";
 import { parsePounds, pounds } from "../format";
+import type { Tender } from "@pos/shared";
 import { StatusBadge } from "../today/money";
+import { MethodChoice, WalletPay } from "../today/WalletPay";
 import { useLiveOrders } from "../useLiveOrders";
 
-const KNOWN = ["not_found", "not_delivery", "voided", "not_waiting", "not_out", "no_driver", "duplicate", "bad_amount", "paid"];
+const KNOWN = ["not_found", "not_delivery", "voided", "not_waiting", "not_out", "no_driver", "duplicate", "bad_amount", "paid", "no_wallet", "over_due"];
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 const minutesSince = (iso: string, now: number) => Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
@@ -269,22 +271,29 @@ function DriverSummary({ board }: { board: Board }) {
   );
 }
 
-/** The driver is back: the order was delivered, with the cash they collected. */
+/** The driver is back: the order was delivered, with the cash they collected or the customer's wallet transfer. */
 function DeliveredDialog({ order, onClose, onDone }: { order: BoardOrder; onClose: () => void; onDone: (text: string) => void }) {
   const { t } = useTranslation();
   const due = Math.ceil(order.totals.balanceCents / 100);
   const [cash, setCash] = useState(due > 0 ? String(due) : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState<Tender["method"]>("cash");
   const amount = parsePounds(cash);
 
-  async function done(withCash: boolean) {
-    if (withCash && (amount === null || Number.isNaN(amount) || amount <= 0)) return setError(t("delivery.errors.bad_amount"));
+  function withCash() {
+    if (amount === null || Number.isNaN(amount) || amount <= 0) return setError(t("delivery.errors.bad_amount"));
+    void done({ method: "cash", tenderedPounds: amount });
+  }
+
+  async function done(tender: Tender | null) {
     setBusy(true);
     setError(null);
     try {
-      const { changeCents } = await api.delivered(order.id, withCash ? amount : null);
-      onDone(changeCents > 0 ? t("delivery.deliveredChange", { n: order.number, change: pounds(changeCents) }) : t("delivery.deliveredDone", { n: order.number }));
+      const { changeCents } = await api.delivered(order.id, tender);
+      onDone(
+        changeCents > 0 ? t("delivery.deliveredChange", { n: order.number, change: pounds(changeCents) }) : t("delivery.deliveredDone", { n: order.number }),
+      );
     } catch (err) {
       const code = err instanceof ApiError ? err.body.error : undefined;
       setError(t(code && KNOWN.includes(code) ? `delivery.errors.${code}` : "delivery.errors.server"));
@@ -294,7 +303,7 @@ function DeliveredDialog({ order, onClose, onDone }: { order: BoardOrder; onClos
 
   return (
     <div className="fixed inset-0 z-10 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label={t("delivery.delivered")}>
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-2xl bg-white p-6 shadow-xl">
+      <div className="flex max-h-full w-full max-w-md flex-col gap-4 overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
         <h2 className="text-2xl font-bold">{t("delivery.deliveredTitle", { n: order.number })}</h2>
         <p className="font-semibold">
           {order.customerName} · {order.delivery.driverName}
@@ -315,7 +324,17 @@ function DeliveredDialog({ order, onClose, onDone }: { order: BoardOrder; onClos
             </div>
           )}
         </div>
-        {due > 0 && (
+        {due > 0 && <MethodChoice method={method} onChange={setMethod} />}
+        {due > 0 && method === "wallet" && (
+          <WalletPay
+            dueCents={order.totals.balanceCents}
+            busy={busy}
+            label={t("delivery.deliveredWallet")}
+            onPay={(tender) => void done(tender)}
+            onError={setError}
+          />
+        )}
+        {due > 0 && method === "cash" && (
           <label className="flex flex-col gap-1">
             <span className="text-sm font-semibold">{t("delivery.cashFromDriver")}</span>
             <input
@@ -330,15 +349,32 @@ function DeliveredDialog({ order, onClose, onDone }: { order: BoardOrder; onClos
         {error && <p className="rounded-xl bg-red-100 p-3 text-red-900">{error}</p>}
         {due > 0 ? (
           <>
-            <button type="button" disabled={busy} onClick={() => void done(true)} className="min-h-14 rounded-xl bg-red-700 text-lg font-bold text-white disabled:opacity-50">
-              {t("delivery.deliveredPaid")}
-            </button>
-            <button type="button" disabled={busy} onClick={() => void done(false)} className="min-h-12 rounded-xl bg-neutral-100 font-semibold disabled:opacity-50">
+            {method === "cash" && (
+              <button
+                type="button"
+                disabled={busy}
+                onClick={withCash}
+                className="min-h-14 rounded-xl bg-red-700 text-lg font-bold text-white disabled:opacity-50"
+              >
+                {t("delivery.deliveredPaid")}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void done(null)}
+              className="min-h-12 rounded-xl bg-neutral-100 font-semibold disabled:opacity-50"
+            >
               {t("delivery.deliveredUnpaid")}
             </button>
           </>
         ) : (
-          <button type="button" disabled={busy} onClick={() => void done(false)} className="min-h-14 rounded-xl bg-red-700 text-lg font-bold text-white disabled:opacity-50">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void done(null)}
+            className="min-h-14 rounded-xl bg-red-700 text-lg font-bold text-white disabled:opacity-50"
+          >
             {t("delivery.delivered")}
           </button>
         )}

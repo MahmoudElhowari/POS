@@ -83,8 +83,9 @@ test("a delivery fee and a manager-approved discount change what is due; paying 
   await pay.getByRole("button", { name: "تطبيق" }).click();
   await expect(pay.getByTestId("due")).toContainText("1,150 ل.س");
 
-  await pay.getByRole("button", { name: "خصم (بموافقة المشرف)" }).click();
-  const discount = page.getByRole("dialog", { name: "خصم على الطلب" });
+  await pay.getByRole("button", { name: "خصم أو كوبون" }).click();
+  const discount = page.getByRole("dialog", { name: "خصم أو كوبون" });
+  await discount.getByRole("button", { name: "نسبة %" }).click();
   await discount.getByLabel("قيمة الخصم").fill("10");
   await discount.getByLabel("رمز المشرف").fill(CASHIER_PIN);
   await discount.getByRole("button", { name: "تطبيق الخصم" }).click();

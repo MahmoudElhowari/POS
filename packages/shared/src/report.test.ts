@@ -76,7 +76,7 @@ describe("dayReport", () => {
 
   it("lists voids, discounts and unpaid orders", () => {
     expect(report.voids).toEqual([{ number: 3, reason: "wrong_order", staffName: "سامر", totalCents: 210_000 }]);
-    expect(report.discounts).toEqual([{ number: 2, amountCents: 8_500, approvedBy: "مشرف" }]);
+    expect(report.discounts).toEqual([{ number: 2, amountCents: 8_500, approvedBy: "مشرف", coupon: null }]);
     expect(report.carried).toEqual([{ number: 2, customerName: "زبون 2", balanceCents: 106_500 }]);
     expect(report.leftUnpaid).toEqual([{ number: 6, customerName: "زبون 6", balanceCents: 95_000, staffName: "مشرف" }]);
     expect(report.unresolved).toEqual([{ id: "o5", number: 5, customerName: "زبون 5", balanceCents: 100_000 }]);
@@ -109,6 +109,64 @@ describe("dayReport", () => {
     expect(r).toMatchObject({ netCents: 160_000, deliveryFeeCents: 50_000, driverFeesCents: 50_000, cashCents: 210_000 });
     // Cash 2,100 − fees 500 = 1,600: the food.
     expect(r.expectedCashCents).toBe(160_000);
+  });
+
+  it("splits cash from wallets, and keeps wallet money and wallet refunds out of the drawer", () => {
+    // 10: 1,500 paid 1,000 by Syriatel Cash and 500 cash. 11: 800 by MTN Cash, then refunded the same way.
+    const o10 = order(10, "pickup", 150_000, [
+      { kind: "payment", amountCents: 100_000 },
+      { kind: "payment", amountCents: 50_000 },
+    ]);
+    const o11 = order(11, "pickup", 80_000, [
+      { kind: "payment", amountCents: 80_000 },
+      { kind: "refund", amountCents: 80_000 },
+    ]);
+    const syriatel = { method: "wallet" as const, walletName: "سيريتل كاش" };
+    const mtn = { method: "wallet" as const, walletName: "MTN كاش" };
+    const r = dayReport(
+      [o10, o11],
+      [
+        { ...ev(o10, "payment", 100_000), ...syriatel },
+        { ...ev(o10, "payment", 50_000), method: "cash" },
+        { ...ev(o11, "payment", 80_000), ...mtn },
+        { ...ev(o11, "refund", 80_000), ...mtn },
+      ],
+      10_000,
+    );
+    expect(r).toMatchObject({ cashCents: 50_000, cashCount: 1, refundCents: 80_000, refundCount: 1, cashRefundCents: 0 });
+    expect(r.wallets).toEqual([
+      { name: "سيريتل كاش", count: 1, amountCents: 100_000 },
+      { name: "MTN كاش", count: 1, amountCents: 80_000 },
+    ]);
+    // Float 100 + cash 500 = 600.
+    expect(r.expectedCashCents).toBe(60_000);
+  });
+
+  it("counts a driver's wallet payments as nothing to hand in", () => {
+    const o12 = order(12, "delivery", 100_000, [
+      { kind: "delivery_fee", amountCents: 30_000 },
+      { kind: "payment", amountCents: 130_000 },
+    ]);
+    const r = dayReport(
+      [o12],
+      [
+        { ...ev(o12, "payment", 130_000), driverName: "حسام", method: "wallet", walletName: "شام كاش" },
+        { ...ev(o12, "delivered", 30_000), driverName: "حسام" },
+      ],
+      0,
+    );
+    expect(r.drivers).toEqual([{ name: "حسام", orders: 1, collectedCents: 0, feesCents: 30_000, handInCents: -30_000 }]);
+    // The drawer pays the driver's fee.
+    expect(r.expectedCashCents).toBe(-30_000);
+  });
+
+  it("adds up each coupon's orders and what it took off", () => {
+    const o13 = order(13, "pickup", 100_000, [{ kind: "discount", amountCents: 10_000 }], { couponCode: "PIZZA10" });
+    const o14 = order(14, "pickup", 50_000, [{ kind: "discount", amountCents: 5_000 }], { couponCode: "PIZZA10" });
+    const o15 = order(15, "pickup", 50_000, [{ kind: "discount", amountCents: 5_000 }, { kind: "void" }], { couponCode: "PIZZA10" });
+    const r = dayReport([o13, o14, o15], [], 0);
+    expect(r.coupons).toEqual([{ code: "PIZZA10", orders: 2, amountCents: 15_000 }]);
+    expect(r.discounts.map((d) => d.coupon)).toEqual(["PIZZA10", "PIZZA10"]);
   });
 
   it("is all zeros on a quiet day", () => {

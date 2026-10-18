@@ -76,7 +76,7 @@ describe.skipIf(!url)("delivery board (Postgres)", () => {
     expect(board.orders[0]!.delivery).toMatchObject({ state: "out", driverName: "أبو علي" });
 
     // 850 + 300 fee = 1,150; the driver hands over 1,200.
-    const paid = await s.delivery.delivered(o.id, 1200, s.staffId);
+    const paid = await s.delivery.delivered(o.id, { method: "cash", tenderedPounds: 1200 }, s.staffId);
     expect(paid).toMatchObject({ totals: { status: "paid", totalCents: 115_000, taxIncludedCents: 4_000 }, changeCents: 5_000 });
     expect(await s.receipts()).toHaveLength(1);
 
@@ -107,6 +107,19 @@ describe.skipIf(!url)("delivery board (Postgres)", () => {
     const { totals } = await s.delivery.delivered(o.id, null, s.staffId);
     expect(totals.status).toBe("unpaid");
     expect((await s.delivery.board()).summary).toEqual([{ name: "حسام", orders: 1, collectedCents: 0, feesCents: 0, handInCents: 0 }]);
+  });
+
+  it("marks an order delivered and paid by wallet, so the driver has only the fee to take from the drawer", async () => {
+    const s = await store();
+    const o = await s.send("delivery", "خالد");
+    await s.money.deliveryFee(o.id, 300, s.staffId);
+    const d = await s.delivery.addDriver("أبو علي", s.staffId);
+    await s.delivery.out([o.id], d, s.staffId);
+    const paid = await s.delivery.delivered(o.id, { method: "wallet", wallet: "syriatel", amountPounds: 1150, reference: "T-77" }, s.staffId);
+    expect(paid).toMatchObject({ totals: { status: "paid" }, changeCents: 0 });
+    expect((await s.delivery.board()).summary).toEqual([{ name: "أبو علي", orders: 1, collectedCents: 0, feesCents: 30_000, handInCents: -30_000 }]);
+    const { report } = await s.days.x();
+    expect(report).toMatchObject({ cashCents: 0, wallets: [{ name: "سيريتل كاش", count: 1, amountCents: 115_000 }], expectedCashCents: -30_000 });
   });
 
   it("refuses a driver who has stopped working, or a name already on the list", async () => {

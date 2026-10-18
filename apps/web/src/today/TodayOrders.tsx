@@ -201,8 +201,13 @@ function OrderPanel({ id, onChanged, onClose }: { id: string; onChanged: () => v
               <bdi dir="ltr" className="text-neutral-500">
                 {time(h.createdAt)}
               </bdi>
-              <span className="font-semibold">{t(`today.kinds.${h.kind}`)}</span>
+              <span className="font-semibold">
+                {h.kind === "payment" && h.walletName ? t("today.walletPayment", { name: h.walletName }) : t(`today.kinds.${h.kind}`)}
+              </span>
               {h.amountCents !== null && <span>{pounds(h.amountCents)}</span>}
+              {h.kind === "refund" && h.walletName && <span>· {h.walletName}</span>}
+              {h.reference && <span>· {t("today.reference", { ref: h.reference })}</span>}
+              {h.coupon && <span>· {t("today.coupon", { code: h.coupon })}</span>}
               {h.reason && <span>· {t(`reason.reasons.${h.reason}`)}</span>}
               {h.note && <span>· {h.note}</span>}
               <span>· {h.staffName}</span>

@@ -18,6 +18,21 @@ export const settingsSchema = {
     autoCloseHour: z.number().int().min(0).max(12),
     notesPounds: z.array(z.number().int().min(1).max(1_000_000)).min(1).max(20),
   }),
+  /**
+   * Mobile wallets the restaurant takes (Milestone 8). The key never changes, so
+   * past payments keep pointing at the right wallet after a rename.
+   */
+  wallets: z
+    .array(
+      z.object({
+        key: z.string().regex(/^[a-z0-9_-]{1,30}$/),
+        nameAr: z.string().trim().min(1).max(30),
+        nameEn: z.string().trim().max(30),
+        active: z.boolean(),
+      }),
+    )
+    .max(12)
+    .refine((list) => new Set(list.map((w) => w.key)).size === list.length, "duplicate wallet key"),
   /** Extra lines on the customer receipt. */
   receipt: z.object({
     phone: z.string().trim().max(40),
@@ -33,12 +48,18 @@ export const DEFAULT_SETTINGS: Settings = {
   tax: { rateBp: 500, nameAr: "ضريبة", nameEn: "Tax" },
   day: { autoCloseHour: 4, notesPounds: [10, 25, 50, 100, 200, 500] },
   receipt: { phone: "", address: "", footer: "" },
+  wallets: [
+    { key: "syriatel", nameAr: "سيريتل كاش", nameEn: "Syriatel Cash", active: true },
+    { key: "mtn", nameAr: "MTN كاش", nameEn: "MTN Cash", active: true },
+    { key: "sham", nameAr: "شام كاش", nameEn: "Sham Cash", active: true },
+  ],
 };
 
 export const settingsPatch = z.object({
   tax: settingsSchema.tax.optional(),
   day: settingsSchema.day.optional(),
   receipt: settingsSchema.receipt.optional(),
+  wallets: settingsSchema.wallets.optional(),
 });
 
 export function createSettingsStore(db: Db, tenantId: string) {

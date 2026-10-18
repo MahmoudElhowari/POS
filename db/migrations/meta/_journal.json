@@ -43,6 +43,13 @@
       "when": 1792283165345,
       "tag": "0005_delivery_board",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792293764109,
+      "tag": "0006_wallets_coupons",
+      "breakpoints": true
     }
   ]
 }

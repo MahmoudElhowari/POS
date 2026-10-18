@@ -1,4 +1,4 @@
-import type { DayReport, DeliveryStatus, DraftProblem, DriverRow, OrderDraft, OrderTotals, OrderType } from "@pos/shared";
+import type { DayReport, DeliveryStatus, DraftProblem, DriverRow, OrderDraft, OrderTotals, OrderType, Tender, Wallet } from "@pos/shared";
 
 export type JobStatus = "queued" | "printing" | "done" | "failed";
 
@@ -196,6 +196,9 @@ export interface OrderEventView {
   approvedByName: string | null;
   reason: string | null;
   note: string;
+  walletName: string | null;
+  reference: string | null;
+  coupon: string | null;
   createdAt: string;
 }
 
@@ -259,6 +262,27 @@ export interface Settings {
   tax: { rateBp: number; nameAr: string; nameEn: string };
   day: { autoCloseHour: number; notesPounds: number[] };
   receipt: { phone: string; address: string; footer: string };
+  wallets: Wallet[];
+}
+
+export interface Coupon {
+  id: string;
+  code: string;
+  percentBp: number | null;
+  amountCents: number | null;
+  endsOn: string | null;
+  maxUses: number | null;
+  active: boolean;
+  uses: number;
+}
+
+export interface CouponInput {
+  code: string;
+  percentBp?: number | null;
+  amountPounds?: number | null;
+  endsOn?: string | null;
+  maxUses?: number | null;
+  active?: boolean;
 }
 
 export class ApiError extends Error {
@@ -340,8 +364,9 @@ export const api = {
   discount: (id: string, amount: { percentBp: number } | { amountPounds: number }, managerPin: string) =>
     request<OrderTotals>("POST", `/orders/${id}/discount`, { ...amount, managerPin }),
   deliveryFee: (id: string, amountPounds: number) => request<OrderTotals>("POST", `/orders/${id}/delivery-fee`, { amountPounds }),
-  payCash: (id: string, tenderedPounds: number) =>
-    request<{ totals: OrderTotals; changeCents: number }>("POST", `/orders/${id}/pay`, { tenderedPounds }),
+  pay: (id: string, tender: Tender) => request<{ totals: OrderTotals; changeCents: number }>("POST", `/orders/${id}/pay`, tender),
+  coupon: (id: string, code: string) => request<{ totals: OrderTotals; code: string; amountCents: number }>("POST", `/orders/${id}/coupon`, { code }),
+  wallets: () => request<Wallet[]>("GET", "/orders/wallets"),
   voidOrder: (id: string, reason: VoidReason, note: string) => request<OrderTotals>("POST", `/orders/${id}/void`, { reason, note }),
   refund: (id: string, reason: VoidReason, note: string) => request<OrderTotals>("POST", `/orders/${id}/refund`, { reason, note }),
   reprint: (id: string, which: "kitchen" | "receipt") => request<void>("POST", `/orders/${id}/reprint`, { which }),
@@ -358,12 +383,16 @@ export const api = {
 
   deliveryBoard: () => request<DeliveryBoard>("GET", "/delivery/board"),
   sendOut: (driverId: string, orderIds: string[]) => request<void>("POST", "/delivery/out", { driverId, orderIds }),
-  delivered: (id: string, tenderedPounds: number | null) =>
-    request<{ totals: OrderTotals; changeCents: number }>("POST", `/delivery/orders/${id}/delivered`, { tenderedPounds }),
+  delivered: (id: string, tender: Tender | null) =>
+    request<{ totals: OrderTotals; changeCents: number }>("POST", `/delivery/orders/${id}/delivered`, { tender }),
   returned: (id: string, note: string) => request<void>("POST", `/delivery/orders/${id}/returned`, { note }),
   drivers: () => request<Driver[]>("GET", "/admin/drivers"),
   addDriver: (name: string) => request<{ id: string }>("POST", "/admin/drivers", { name }),
   updateDriver: (id: string, patch: Partial<{ name: string; active: boolean }>) => request<void>("PATCH", `/admin/drivers/${id}`, patch),
+
+  coupons: () => request<Coupon[]>("GET", "/admin/coupons"),
+  addCoupon: (input: CouponInput) => request<{ id: string }>("POST", "/admin/coupons", input),
+  updateCoupon: (id: string, patch: Partial<CouponInput>) => request<void>("PATCH", `/admin/coupons/${id}`, patch),
 
   settings: () => request<Settings>("GET", "/admin/settings"),
   updateSettings: (patch: Partial<Settings>) => request<Settings>("PATCH", "/admin/settings", patch),

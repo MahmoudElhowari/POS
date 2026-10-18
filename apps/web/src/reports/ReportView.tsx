@@ -40,6 +40,8 @@ export function ReportView({ report: r, count }: { report: DayReport; count?: Dr
   const { t } = useTranslation();
   const money = (c: number) => `${pounds(c)} ${t("admin.currency")}`;
   const minus = (c: number) => (c ? `-${pounds(c)}` : "0");
+  // Reports frozen before Milestone 8 count every refund as cash.
+  const cashRefundCents = r.cashRefundCents ?? r.refundCents;
   const unpaid = (title: string, list: { number: number; customerName: string; balanceCents: number }[]) =>
     list.length > 0 && (
       <Section title={`${title} (${list.length})`}>
@@ -63,7 +65,7 @@ export function ReportView({ report: r, count }: { report: DayReport; count?: Dr
       <Section title={t("reports.drawer")}>
         <Row label={t("reports.floatRow")} value={pounds(r.floatCents)} />
         <Row label={t("reports.cashIn")} value={pounds(r.cashCents)} />
-        <Row label={t("reports.refundsOut")} value={pounds(r.refundCents)} />
+        <Row label={t("reports.refundsOut")} value={pounds(cashRefundCents)} />
         <Row label={t("reports.driverFeesOut")} value={pounds(r.driverFeesCents ?? 0)} />
         <Row label={t("reports.expected")} value={money(r.expectedCashCents)} strong />
         {count && (
@@ -86,7 +88,15 @@ export function ReportView({ report: r, count }: { report: DayReport; count?: Dr
 
       <Section title={t("reports.payments")}>
         <Row label={t("reports.cash", { n: r.cashCount })} value={pounds(r.cashCents)} />
+        {(r.wallets ?? []).map((w) => (
+          <Row key={w.name} label={`${w.name} (${w.count})`} value={pounds(w.amountCents)} />
+        ))}
         <Row label={t("reports.refunds", { n: r.refundCount })} value={minus(r.refundCents)} />
+        {cashRefundCents !== r.refundCents && (
+          <span className="text-sm text-neutral-600">
+            {t("reports.refundSplit", { cash: pounds(cashRefundCents), wallet: pounds(r.refundCents - cashRefundCents) })}
+          </span>
+        )}
       </Section>
 
       {/* Reports frozen before Milestone 7 have no drivers. */}
@@ -113,9 +123,18 @@ export function ReportView({ report: r, count }: { report: DayReport; count?: Dr
           {r.discounts.map((d) => (
             <Row
               key={d.number}
-              label={`${t("reports.order", { n: d.number })}${d.approvedBy ? ` · ${t("reports.approvedBy", { name: d.approvedBy })}` : ""}`}
+              label={`${t("reports.order", { n: d.number })}${
+                d.coupon ? ` · ${t("reports.byCoupon", { code: d.coupon })}` : d.approvedBy ? ` · ${t("reports.approvedBy", { name: d.approvedBy })}` : ""
+              }`}
               value={pounds(d.amountCents)}
             />
+          ))}
+        </Section>
+      )}
+      {(r.coupons ?? []).length > 0 && (
+        <Section title={t("reports.coupons")}>
+          {r.coupons!.map((c) => (
+            <Row key={c.code} label={t("reports.couponRow", { code: c.code, n: c.orders })} value={pounds(c.amountCents)} />
           ))}
         </Section>
       )}

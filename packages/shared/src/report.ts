@@ -16,6 +16,8 @@ export interface ReportOrder {
   sentToday: boolean;
   /** The manager who approved the order's current discount. */
   discountApprovedBy: string | null;
+  /** The coupon code behind the order's current discount (Milestone 8). */
+  couponCode?: string | null;
   /** A manager left it unpaid when a day closed. */
   leftUnpaidBy: string | null;
   lines: { qty: number; nameAr: string; sizeAr: string | null; otherHalfAr: string | null }[];
@@ -33,6 +35,9 @@ export interface ReportEvent {
   staffName: string;
   reason: string | null;
   driverName?: string | null;
+  /** How a payment or refund was made; missing means cash (before Milestone 8). */
+  method?: "cash" | "wallet";
+  walletName?: string | null;
 }
 
 export interface DriverRow {
@@ -57,12 +62,20 @@ export interface DayReport {
   netCents: number;
   taxIncludedCents: number;
   byType: { type: OrderType; count: number; netCents: number }[];
+  /** Cash payments only: what goes into the drawer. */
   cashCents: number;
   cashCount: number;
+  /** Wallet payments, one row per wallet. None of it is in the drawer. */
+  wallets?: { name: string; count: number; amountCents: number }[];
+  /** All refunds, cash and wallet. */
   refundCents: number;
   refundCount: number;
+  /** Refunds paid out of the drawer. */
+  cashRefundCents?: number;
   voids: { number: number; reason: string | null; staffName: string; totalCents: number }[];
-  discounts: { number: number; amountCents: number; approvedBy: string | null }[];
+  discounts: { number: number; amountCents: number; approvedBy: string | null; coupon?: string | null }[];
+  /** Orders that used each coupon, and what it took off. */
+  coupons?: { code: string; orders: number; amountCents: number }[];
   /** Unpaid delivery orders that carry over to the next day. */
   carried: { number: number; customerName: string; balanceCents: number }[];
   /** Other unpaid orders a manager chose to leave unpaid. */
@@ -100,11 +113,34 @@ export function dayReport(orders: ReportOrder[], events: ReportEvent[], floatCen
     }
   }
 
+  const isCash = (e: ReportEvent) => e.method !== "wallet";
   const payments = events.filter((e) => e.kind === "payment");
+  const cashPayments = payments.filter(isCash);
   const refunds = events.filter((e) => e.kind === "refund");
   const byNumber = new Map(orders.map((o) => [o.id, o]));
-  const cashCents = payments.reduce((s, e) => s + e.amountCents, 0);
-  const refundCents = refunds.reduce((s, e) => s + e.amountCents, 0);
+  const total = (list: ReportEvent[]) => list.reduce((s, e) => s + e.amountCents, 0);
+  const cashCents = total(cashPayments);
+  const refundCents = total(refunds);
+  const cashRefundCents = total(refunds.filter(isCash));
+
+  const wallets = new Map<string, { name: string; count: number; amountCents: number }>();
+  for (const e of payments) {
+    if (isCash(e)) continue;
+    const name = e.walletName ?? "";
+    const row = wallets.get(name) ?? { name, count: 0, amountCents: 0 };
+    row.count += 1;
+    row.amountCents += e.amountCents;
+    wallets.set(name, row);
+  }
+
+  const coupons = new Map<string, { code: string; orders: number; amountCents: number }>();
+  for (const o of sold) {
+    if (!o.couponCode || o.totals.discountCents <= 0) continue;
+    const row = coupons.get(o.couponCode) ?? { code: o.couponCode, orders: 0, amountCents: 0 };
+    row.orders += 1;
+    row.amountCents += o.totals.discountCents;
+    coupons.set(o.couponCode, row);
+  }
   const open = orders.filter((o) => isOpen(o.totals));
 
   const drivers = new Map<string, DriverRow>();
@@ -118,7 +154,8 @@ export function dayReport(orders: ReportOrder[], events: ReportEvent[], floatCen
     if (e.kind === "delivered") {
       driver(e.driverName).orders += 1;
       driver(e.driverName).feesCents += e.amountCents;
-    } else if (e.kind === "payment") driver(e.driverName).collectedCents += e.amountCents;
+      // A customer who paid the driver by wallet leaves the driver nothing to hand in.
+    } else if (e.kind === "payment" && isCash(e)) driver(e.driverName).collectedCents += e.amountCents;
   }
   for (const d of drivers.values()) d.handInCents = d.collectedCents - d.feesCents;
   const driverFeesCents = events.filter((e) => e.kind === "delivered").reduce((s, e) => s + e.amountCents, 0);
@@ -135,18 +172,19 @@ export function dayReport(orders: ReportOrder[], events: ReportEvent[], floatCen
       return { type, count: ofType.length, netCents: sum(ofType, (t) => t.foodCents) };
     }),
     cashCents,
-    cashCount: payments.length,
+    cashCount: cashPayments.length,
+    wallets: [...wallets.values()].sort((a, b) => b.amountCents - a.amountCents || a.name.localeCompare(b.name, "ar")),
     refundCents,
     refundCount: refunds.length,
+    cashRefundCents,
     voids: events
       .filter((e) => e.kind === "void")
       .map((e) => ({ number: e.number, reason: e.reason, staffName: e.staffName, totalCents: byNumber.get(e.orderId)?.totals.totalCents ?? 0 })),
     discounts: sold
       .filter((o) => o.totals.discountCents > 0)
-      .map((o) => ({ number: o.number, amountCents: o.totals.discountCents, approvedBy: o.discountApprovedBy })),
-    carried: open
-      .filter((o) => o.type === "delivery")
-      .map((o) => ({ number: o.number, customerName: o.customerName, balanceCents: o.totals.balanceCents })),
+      .map((o) => ({ number: o.number, amountCents: o.totals.discountCents, approvedBy: o.discountApprovedBy, coupon: o.couponCode ?? null })),
+    coupons: [...coupons.values()].sort((a, b) => a.code.localeCompare(b.code)),
+    carried: open.filter((o) => o.type === "delivery").map((o) => ({ number: o.number, customerName: o.customerName, balanceCents: o.totals.balanceCents })),
     leftUnpaid: open
       .filter((o) => o.type !== "delivery" && o.leftUnpaidBy !== null)
       .map((o) => ({ number: o.number, customerName: o.customerName, balanceCents: o.totals.balanceCents, staffName: o.leftUnpaidBy! })),
@@ -157,7 +195,8 @@ export function dayReport(orders: ReportOrder[], events: ReportEvent[], floatCen
     driverFeesCents,
     drivers: [...drivers.values()].sort((a, b) => a.name.localeCompare(b.name, "ar")),
     floatCents,
-    expectedCashCents: floatCents + cashCents - refundCents - driverFeesCents,
+    // Wallet money never goes through the drawer, in or out.
+    expectedCashCents: floatCents + cashCents - cashRefundCents - driverFeesCents,
   };
 }
 

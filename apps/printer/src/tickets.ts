@@ -96,7 +96,9 @@ export function receiptLines(r: CustomerReceipt, store: PaperStore): Line[] {
   out.push({ kind: "rule" });
   const hasExtras = r.discountCents > 0 || r.deliveryFeeCents > 0;
   if (hasExtras) out.push({ kind: "row", start: "المجموع الفرعي", end: amount(r.subtotalCents), size: 26 });
-  if (r.discountCents > 0) out.push({ kind: "row", start: "الخصم", end: `-${amount(r.discountCents)}`, size: 26 });
+  if (r.discountCents > 0) {
+    out.push({ kind: "row", start: r.couponCode ? `الخصم (كوبون ${ltr(r.couponCode)})` : "الخصم", end: `-${amount(r.discountCents)}`, size: 26 });
+  }
   if (r.deliveryFeeCents > 0) out.push({ kind: "row", start: "أجرة التوصيل", end: amount(r.deliveryFeeCents), size: 26 });
   out.push({ kind: "row", start: "الإجمالي", end: syp(r.totalCents), size: 38, bold: true });
   if (r.taxRateBp > 0) {
@@ -107,7 +109,18 @@ export function receiptLines(r: CustomerReceipt, store: PaperStore): Line[] {
   if (r.status === "voided") out.push(text("** طلب ملغى **", 40, { bold: true, align: "center" }));
   else if (r.status === "refunded") out.push(text("** تم استرداد المبلغ **", 36, { bold: true, align: "center" }));
   else if (r.status === "paid") {
-    if (r.tenderedCents > 0) {
+    if (r.payments?.length) {
+      // Each payment: the cash handed over and its change, or the wallet and its transfer reference.
+      for (const p of r.payments) {
+        if (p.method === "cash") {
+          out.push({ kind: "row", start: "نقداً", end: amount(p.tenderedCents), size: 28 });
+          if (p.changeCents > 0 || r.payments.length === 1) out.push({ kind: "row", start: "الباقي", end: amount(p.changeCents), size: 28, bold: true });
+        } else {
+          out.push({ kind: "row", start: p.nameAr, end: amount(p.amountCents), size: 28 });
+          if (p.reference) out.push(text(`رقم العملية: ${ltr(p.reference)}`, 22));
+        }
+      }
+    } else if (r.tenderedCents > 0) {
       out.push({ kind: "row", start: "نقداً", end: amount(r.tenderedCents), size: 28 });
       out.push({ kind: "row", start: "الباقي", end: amount(r.changeCents), size: 28, bold: true });
     }
@@ -161,15 +174,26 @@ export function reportLines(p: DayReportPaper, store: PaperStore): Line[] {
     ...r.byType.map((b): Line => ({ kind: "row", start: `${TYPE_AR[b.type]} (${ltr(String(b.count))})`, end: amount(b.netCents), size: 26 })),
     ...heading("المدفوعات"),
     { kind: "row", start: `نقداً (${ltr(String(r.cashCount))})`, end: amount(r.cashCents), size: 26 },
+    // Reports frozen before Milestone 8 have no wallets.
+    ...(r.wallets ?? []).map((w): Line => ({ kind: "row", start: `${w.name} (${ltr(String(w.count))})`, end: amount(w.amountCents), size: 26 })),
     { kind: "row", start: `المبالغ المستردة (${ltr(String(r.refundCount))})`, end: r.refundCents ? `-${amount(r.refundCents)}` : "0", size: 26 },
   );
+  const cashRefundCents = r.cashRefundCents ?? r.refundCents;
+  if (cashRefundCents !== r.refundCents) out.push(text(`منها نقداً ${amount(cashRefundCents)} · بالمحفظة ${amount(r.refundCents - cashRefundCents)}`, 22));
   if (r.voids.length) {
     out.push(...heading(`الطلبات الملغاة (${ltr(String(r.voids.length))})`));
     for (const v of r.voids) out.push({ kind: "row", start: `#${v.number} · ${REASON_AR[v.reason ?? ""] ?? ""} · ${v.staffName}`, end: amount(v.totalCents), size: 24 });
   }
   if (r.discounts.length) {
     out.push(...heading(`الخصومات (${ltr(String(r.discounts.length))})`));
-    for (const d of r.discounts) out.push({ kind: "row", start: `#${d.number}${d.approvedBy ? ` · بموافقة ${d.approvedBy}` : ""}`, end: amount(d.amountCents), size: 24 });
+    for (const d of r.discounts) {
+      const by = d.coupon ? ` · كوبون ${ltr(d.coupon)}` : d.approvedBy ? ` · بموافقة ${d.approvedBy}` : "";
+      out.push({ kind: "row", start: `#${d.number}${by}`, end: amount(d.amountCents), size: 24 });
+    }
+  }
+  if (r.coupons?.length) {
+    out.push(...heading("الكوبونات"));
+    for (const c of r.coupons) out.push({ kind: "row", start: `${ltr(c.code)} (${ltr(String(c.orders))})`, end: amount(c.amountCents), size: 24 });
   }
   const unpaid = (title: string, list: { number: number; customerName: string; balanceCents: number }[]) => {
     if (!list.length) return;
@@ -199,7 +223,7 @@ export function reportLines(p: DayReportPaper, store: PaperStore): Line[] {
     ...heading("الصندوق"),
     { kind: "row", start: "الرصيد الافتتاحي", end: amount(r.floatCents), size: 26 },
     { kind: "row", start: "+ النقد المستلم", end: amount(r.cashCents), size: 26 },
-    { kind: "row", start: "− المبالغ المستردة", end: amount(r.refundCents), size: 26 },
+    { kind: "row", start: "− المبالغ المستردة نقداً", end: amount(cashRefundCents), size: 26 },
     { kind: "row", start: "− أجرة السائقين", end: amount(r.driverFeesCents ?? 0), size: 26 },
     { kind: "row", start: "المتوقع في الصندوق", end: syp(r.expectedCashCents), size: 30, bold: true },
   );

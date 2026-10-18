@@ -111,6 +111,24 @@ describe("customer receipt", () => {
     expect(lines.some((l) => l.startsWith("يشمل"))).toBe(false);
   });
 
+  it("lists a split payment: the wallet with its transfer number, then the cash and change, and the coupon", async () => {
+    const split: CustomerReceipt = {
+      ...receipt,
+      couponCode: "PIZZA10",
+      payments: [
+        { method: "wallet", nameAr: "سيريتل كاش", amountCents: 200_000, tenderedCents: 200_000, changeCents: 0, reference: "TX-889" },
+        { method: "cash", nameAr: "نقداً", amountCents: 122_500, tenderedCents: 150_000, changeCents: 27_500, reference: null },
+      ],
+    };
+    const lines = texts(receiptLines(split, store));
+    expect(lines.find((l) => l.startsWith("الخصم (كوبون"))).toContain("PIZZA10");
+    expect(lines).toContain("سيريتل كاش | 2,000");
+    expect(lines.find((l) => l.startsWith("رقم العملية"))).toContain("TX-889");
+    expect(lines).toContain("نقداً | 1,500");
+    expect(lines).toContain("الباقي | 275");
+    await save("receipt-split-sample.png", renderReceipt(split, store, 576).canvas);
+  });
+
   it("fits a 58 mm printer", () => {
     expect(renderReceipt(receipt, store, 384).bitmap.width).toBe(384);
   });
@@ -177,6 +195,24 @@ describe("X and Z reports", () => {
     expect(lines).toContain("بيتزا ذرة · وسط | 2½");
     expect(lines).toContain("#6 · أم علي | 950");
     await save("z-report-sample.png", renderReport(zPaper, store, 576).canvas);
+  });
+
+  it("shows wallets, coupons and cash refunds, and keeps wallet refunds out of the drawer", () => {
+    const report = {
+      ...zPaper.report,
+      wallets: [{ name: "شام كاش", count: 2, amountCents: 150_000 }],
+      refundCents: 100_000,
+      refundCount: 2,
+      cashRefundCents: 40_000,
+      discounts: [{ number: 2, amountCents: 8_500, approvedBy: null, coupon: "PIZZA10" }],
+      coupons: [{ code: "PIZZA10", orders: 1, amountCents: 8_500 }],
+    };
+    const lines = texts(reportLines({ ...zPaper, report }, store));
+    expect(lines.some((l) => l.startsWith("شام كاش (") && l.endsWith(" | 1,500"))).toBe(true);
+    expect(lines.some((l) => l.startsWith("منها نقداً 400"))).toBe(true);
+    expect(lines).toContain("− المبالغ المستردة نقداً | 400");
+    expect(lines).toContain("الكوبونات");
+    expect(lines.some((l) => l.startsWith("#2 · كوبون") && l.endsWith(" | 85"))).toBe(true);
   });
 
   it("leaves the count off an X report", () => {

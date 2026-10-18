@@ -1,14 +1,16 @@
-import type { OrderTotals } from "@pos/shared";
+import type { OrderTotals, Tender } from "@pos/shared";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, type OrderDetail } from "../api";
 import { cashSuggestions, parsePounds, pounds } from "../format";
 import { DiscountDialog } from "./DiscountDialog";
 import { moneyError, TotalsBox } from "./money";
+import { MethodChoice, WalletPay } from "./WalletPay";
 
 /**
- * Cash payment for one order: delivery fee and discount first, then the cash
- * handed over and the change. Closing it leaves the order to pay later.
+ * Payment for one order: delivery fee and discount or coupon first, then the
+ * cash handed over and the change, or a wallet transfer. Cash and wallet can
+ * split the bill. Closing it leaves the order to pay later.
  */
 export function PayDialog({ orderId, onClose, onChanged }: { orderId: string; onClose: () => void; onChanged?: () => void }) {
   const { t } = useTranslation();
@@ -16,7 +18,9 @@ export function PayDialog({ orderId, onClose, onChanged }: { orderId: string; on
   const [tendered, setTendered] = useState("");
   const [fee, setFee] = useState("");
   const [discounting, setDiscounting] = useState(false);
-  const [change, setChange] = useState<{ changeCents: number; totals: OrderTotals } | null>(null);
+  const [change, setChange] = useState<{ changeCents: number; totals: OrderTotals; method: Tender["method"] } | null>(null);
+  const [method, setMethod] = useState<Tender["method"]>("cash");
+  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -52,12 +56,14 @@ export function PayDialog({ orderId, onClose, onChanged }: { orderId: string; on
   const adjustable = totals !== undefined && totals.status === "unpaid" && totals.paidCents === 0;
   const amount = parsePounds(tendered);
 
-  const pay = (pounds: number | null) => {
-    if (pounds === null || Number.isNaN(pounds) || pounds <= 0) return setError(t("pay.errors.bad_amount"));
+  const pay = (tender: Tender) =>
     void run(async () => {
-      setChange(await api.payCash(orderId, pounds));
+      setChange({ ...(await api.pay(orderId, tender)), method: tender.method });
       setTendered("");
     });
+  const payCash = (pounds: number | null) => {
+    if (pounds === null || Number.isNaN(pounds) || pounds <= 0) return setError(t("pay.errors.bad_amount"));
+    pay({ method: "cash", tenderedPounds: pounds });
   };
 
   const applyFee = () => {
@@ -110,15 +116,24 @@ export function PayDialog({ orderId, onClose, onChanged }: { orderId: string; on
                 </button>
               )}
 
+              {notice && (
+                <p role="status" className="rounded-xl bg-emerald-100 p-3 font-semibold text-emerald-950">
+                  {notice}
+                </p>
+              )}
               {change && (
                 <div className="flex flex-col gap-1 rounded-2xl bg-emerald-100 p-4 text-emerald-950" data-testid="change">
                   {change.totals.status === "paid" ? (
                     <>
                       <span className="text-lg font-bold">{t("pay.paidTitle")}</span>
-                      <span className="text-sm">{t("pay.change")}</span>
-                      <span className="text-5xl font-bold">
-                        {pounds(change.changeCents)} {t("admin.currency")}
-                      </span>
+                      {(change.method === "cash" || change.changeCents > 0) && (
+                        <>
+                          <span className="text-sm">{t("pay.change")}</span>
+                          <span className="text-5xl font-bold">
+                            {pounds(change.changeCents)} {t("admin.currency")}
+                          </span>
+                        </>
+                      )}
                       <span className="text-sm">{t("pay.receiptPrinting")}</span>
                     </>
                   ) : (
@@ -130,31 +145,42 @@ export function PayDialog({ orderId, onClose, onChanged }: { orderId: string; on
 
             {open && (
               <div className="flex flex-col gap-3">
-                <span className="text-sm font-semibold">{t("pay.tendered")}</span>
-                <output dir="ltr" className="flex min-h-14 items-center justify-end rounded-xl border border-neutral-300 px-4 text-3xl font-bold" data-testid="tendered">
-                  {amount ? pounds(amount * 100) : ""}
-                </output>
-                <div className="flex flex-wrap gap-2">
-                  {cashSuggestions(due).map((p) => (
-                    <button key={p} type="button" onClick={() => setTendered(String(p))} className="min-h-12 flex-1 rounded-xl bg-amber-100 px-3 font-bold">
-                      {pounds(p * 100)}
+                <MethodChoice method={method} onChange={setMethod} />
+                {method === "wallet" ? (
+                  <WalletPay dueCents={totals.balanceCents} busy={busy} label={t("wallet.pay")} onPay={pay} onError={setError} />
+                ) : (
+                  <>
+                    <span className="text-sm font-semibold">{t("pay.tendered")}</span>
+                    <output
+                      dir="ltr"
+                      className="flex min-h-14 items-center justify-end rounded-xl border border-neutral-300 px-4 text-3xl font-bold"
+                      data-testid="tendered"
+                    >
+                      {amount ? pounds(amount * 100) : ""}
+                    </output>
+                    <div className="flex flex-wrap gap-2">
+                      {cashSuggestions(due).map((p) => (
+                        <button key={p} type="button" onClick={() => setTendered(String(p))} className="min-h-12 flex-1 rounded-xl bg-amber-100 px-3 font-bold">
+                          {pounds(p * 100)}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-3 gap-2" dir="ltr">
+                      {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => key(d, () => typeDigit(d)))}
+                      {key(t("pay.clear"), () => setTendered(""))}
+                      {key("0", () => typeDigit("0"))}
+                      {key("00", () => typeDigit("00"))}
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy || !amount}
+                      onClick={() => payCash(amount)}
+                      className="min-h-16 rounded-xl bg-red-700 text-xl font-bold text-white disabled:opacity-50"
+                    >
+                      {t("pay.payCash")}
                     </button>
-                  ))}
-                </div>
-                <div className="grid grid-cols-3 gap-2" dir="ltr">
-                  {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => key(d, () => typeDigit(d)))}
-                  {key(t("pay.clear"), () => setTendered(""))}
-                  {key("0", () => typeDigit("0"))}
-                  {key("00", () => typeDigit("00"))}
-                </div>
-                <button
-                  type="button"
-                  disabled={busy || !amount}
-                  onClick={() => pay(amount)}
-                  className="min-h-16 rounded-xl bg-red-700 text-xl font-bold text-white disabled:opacity-50"
-                >
-                  {t("pay.payCash")}
-                </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -175,8 +201,9 @@ export function PayDialog({ orderId, onClose, onChanged }: { orderId: string; on
         <DiscountDialog
           orderId={order.id}
           onClose={() => setDiscounting(false)}
-          onApplied={() => {
+          onApplied={(message) => {
             setDiscounting(false);
+            setNotice(message ?? null);
             void load();
             onChanged?.();
           }}
