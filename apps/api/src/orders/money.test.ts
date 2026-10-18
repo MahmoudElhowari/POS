@@ -84,7 +84,7 @@ describe.skipIf(!url)("money store (Postgres)", () => {
     // 3,250 − 10% (325) + 300 = 3,225
     expect(afterDiscount.totalCents).toBe(322_500);
 
-    const { totals, changeCents } = await o.money.payCash(o.orderId, 5000, o.staffId);
+    const { totals, changeCents } = await o.money.pay(o.orderId, { method: "cash", tenderedPounds: 5000 }, o.staffId);
     expect(totals.status).toBe("paid");
     expect(changeCents).toBe(177_500);
 
@@ -106,16 +106,19 @@ describe.skipIf(!url)("money store (Postgres)", () => {
 
   it("takes part payments and prints only when paid in full", async () => {
     const o = await sentOrder("dine_in");
-    expect((await o.money.payCash(o.orderId, 2000, o.staffId)).totals).toMatchObject({ status: "part_paid", balanceCents: 125_000 });
+    expect((await o.money.pay(o.orderId, { method: "cash", tenderedPounds: 2000 }, o.staffId)).totals).toMatchObject({
+      status: "part_paid",
+      balanceCents: 125_000,
+    });
     expect(await o.jobs("receipt")).toEqual([]);
-    await o.money.payCash(o.orderId, 1250, o.staffId);
+    await o.money.pay(o.orderId, { method: "cash", tenderedPounds: 1250 }, o.staffId);
     expect(await o.jobs("receipt")).toHaveLength(1);
-    await expect(o.money.payCash(o.orderId, 100, o.staffId)).rejects.toMatchObject({ code: "paid" });
+    await expect(o.money.pay(o.orderId, { method: "cash", tenderedPounds: 100 }, o.staffId)).rejects.toMatchObject({ code: "paid" });
   });
 
   it("does not change the discount or fee after a payment", async () => {
     const o = await sentOrder();
-    await o.money.payCash(o.orderId, 1000, o.staffId);
+    await o.money.pay(o.orderId, { method: "cash", tenderedPounds: 1000 }, o.staffId);
     await expect(o.money.discount(o.orderId, { amountPounds: 100 }, o.staffId, o.staffId)).rejects.toMatchObject({ code: "has_payments" });
     await expect(o.money.deliveryFee(o.orderId, 200, o.staffId)).rejects.toMatchObject({ code: "has_payments" });
   });
@@ -129,7 +132,7 @@ describe.skipIf(!url)("money store (Postgres)", () => {
     const o = await sentOrder();
     const totals = await o.money.void(o.orderId, "customer_cancelled", "", o.staffId);
     expect(totals).toMatchObject({ status: "voided", balanceCents: 0 });
-    await expect(o.money.payCash(o.orderId, 5000, o.staffId)).rejects.toBeInstanceOf(MoneyRefused);
+    await expect(o.money.pay(o.orderId, { method: "cash", tenderedPounds: 5000 }, o.staffId)).rejects.toBeInstanceOf(MoneyRefused);
     const detail = await o.money.detail(o.orderId);
     expect(detail.history.map((h) => [h.kind, h.reason, h.staffName])).toEqual([
       ["sent", null, "المدير"],
@@ -139,7 +142,7 @@ describe.skipIf(!url)("money store (Postgres)", () => {
 
   it("refunds a paid order but will not void it", async () => {
     const o = await sentOrder();
-    await o.money.payCash(o.orderId, 3250, o.staffId);
+    await o.money.pay(o.orderId, { method: "cash", tenderedPounds: 3250 }, o.staffId);
     await expect(o.money.void(o.orderId, "wrong_order", "", o.staffId)).rejects.toMatchObject({ code: "has_payments" });
     expect(await o.money.refund(o.orderId, "wrong_order", "pizza burnt", o.staffId)).toMatchObject({ status: "refunded", paidCents: 0 });
     await expect(o.money.refund(o.orderId, "wrong_order", "", o.staffId)).rejects.toMatchObject({ code: "refunded" });
@@ -175,6 +178,6 @@ describe.skipIf(!url)("money store (Postgres)", () => {
     const a = await sentOrder();
     const b = await sentOrder();
     expect((await b.money.today()).map((o) => o.id)).not.toContain(a.orderId);
-    await expect(b.money.payCash(a.orderId, 100, b.staffId)).rejects.toMatchObject({ code: "not_found" });
+    await expect(b.money.pay(a.orderId, { method: "cash", tenderedPounds: 100 }, b.staffId)).rejects.toMatchObject({ code: "not_found" });
   });
 });

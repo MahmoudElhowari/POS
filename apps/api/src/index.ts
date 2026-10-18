@@ -16,6 +16,7 @@ import { createPrintStore } from "./prints.js";
 import { createAuditLog } from "./audit.js";
 import { createDayStore } from "./days.js";
 import { createDeliveryStore } from "./delivery.js";
+import { createCouponStore } from "./coupons.js";
 import { createSettingsStore } from "./settings.js";
 
 const port = Number(process.env.API_PORT ?? 3000);
@@ -79,6 +80,7 @@ const app = createApp({
   days,
   audit,
   delivery: createDeliveryStore(db, tenantId, days, money, audit),
+  coupons: createCouponStore(db, tenantId, audit),
   menuChanged: () => io.emit("menu.changed"),
   ordersChanged: () => io.emit("orders.changed"),
 });

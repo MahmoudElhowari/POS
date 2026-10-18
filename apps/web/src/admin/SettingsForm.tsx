@@ -1,9 +1,10 @@
+import type { Wallet } from "@pos/shared";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api";
 import { parsePercentBp, parsePounds, percentText } from "../format";
 
-/** Tax shown on receipts and the receipt's own lines (rule 9: settings, not code). */
+/** Tax shown on receipts, the close of day, the receipt's own lines and the wallets taken (rule 9: settings, not code). */
 export function SettingsForm() {
   const { t } = useTranslation();
   const [form, setForm] = useState<{
@@ -16,13 +17,15 @@ export function SettingsForm() {
     address: string;
     footer: string;
   } | null>(null);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     void api
       .settings()
-      .then((s) =>
+      .then((s) => {
+        setWallets(s.wallets);
         setForm({
           rate: percentText(s.tax.rateBp),
           nameAr: s.tax.nameAr,
@@ -30,8 +33,8 @@ export function SettingsForm() {
           hour: String(s.day.autoCloseHour),
           notes: s.day.notesPounds.join(", "),
           ...s.receipt,
-        }),
-      )
+        });
+      })
       .catch(() => setNotice({ ok: false, text: t("settings.error") }));
   }, [t]);
 
@@ -51,12 +54,14 @@ export function SettingsForm() {
     if (hour === null || Number.isNaN(hour) || hour > 12 || !notes.length || notes.some((n) => n === null || Number.isNaN(n) || n <= 0)) {
       return setNotice({ ok: false, text: t("settings.badDay") });
     }
+    if (wallets.some((w) => !w.nameAr.trim())) return setNotice({ ok: false, text: t("settings.badWallet") });
     setBusy(true);
     try {
       await api.updateSettings({
         tax: { rateBp, nameAr: form.nameAr.trim(), nameEn: form.nameEn.trim() },
         day: { autoCloseHour: hour, notesPounds: [...new Set(notes as number[])].sort((a, b) => a - b) },
         receipt: { phone: form.phone.trim(), address: form.address.trim(), footer: form.footer.trim() },
+        wallets: wallets.map((w) => ({ ...w, nameAr: w.nameAr.trim(), nameEn: w.nameEn.trim() })),
       });
       setNotice({ ok: true, text: t("settings.saved") });
     } catch {
@@ -100,6 +105,52 @@ export function SettingsForm() {
         {field("phone", t("settings.phone"), { ltr: true })}
         {field("address", t("settings.address"))}
         {field("footer", t("settings.footer"), { hint: t("settings.footerHint") })}
+      </div>
+      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm" data-testid="wallets">
+        <h3 className="text-lg font-bold">{t("settings.wallets")}</h3>
+        <p className="text-sm text-neutral-600">{t("settings.walletsHint")}</p>
+        {wallets.map((w, i) => {
+          const change = (patch: Partial<Wallet>) => {
+            setNotice(null);
+            setWallets(wallets.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+          };
+          return (
+            <div key={w.key} className={`flex flex-wrap items-end gap-3 ${w.active ? "" : "opacity-60"}`}>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-sm font-semibold">{t("settings.walletNameAr")}</span>
+                <input
+                  value={w.nameAr}
+                  onChange={(e) => change({ nameAr: e.target.value })}
+                  maxLength={30}
+                  className="min-h-12 rounded-xl border border-neutral-300 px-3"
+                />
+              </label>
+              <label className="flex flex-1 flex-col gap-1">
+                <span className="text-sm font-semibold">{t("settings.walletNameEn")}</span>
+                <input
+                  value={w.nameEn}
+                  onChange={(e) => change({ nameEn: e.target.value })}
+                  maxLength={30}
+                  dir="ltr"
+                  className="min-h-12 rounded-xl border border-neutral-300 px-3"
+                />
+              </label>
+              <label className="flex min-h-12 items-center gap-2">
+                <input type="checkbox" className="size-6" checked={w.active} onChange={(e) => change({ active: e.target.checked })} />
+                {t("staff.active")}
+              </label>
+            </div>
+          );
+        })}
+        {wallets.length < 12 && (
+          <button
+            type="button"
+            onClick={() => setWallets([...wallets, { key: `w${Date.now().toString(36)}`, nameAr: "", nameEn: "", active: true }])}
+            className="min-h-12 self-start rounded-xl bg-red-700 px-6 font-bold text-white"
+          >
+            {t("settings.addWallet")}
+          </button>
+        )}
       </div>
       {notice && (
         <p role="status" className={`rounded-xl p-3 font-semibold ${notice.ok ? "bg-emerald-100 text-emerald-900" : "bg-red-100 text-red-900"}`}>

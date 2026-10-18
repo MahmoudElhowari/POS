@@ -33,7 +33,15 @@ export function customerReceipt(
   order: Order,
   lines: OrderLine[],
   totals: OrderTotals,
-  extra: { cashierName: string; tenderedCents: number; changeCents: number; reprint: boolean; settings: Settings },
+  extra: {
+    cashierName: string;
+    tenderedCents: number;
+    changeCents: number;
+    payments: NonNullable<CustomerReceipt["payments"]>;
+    couponCode: string | null;
+    reprint: boolean;
+    settings: Settings;
+  },
 ): CustomerReceipt {
   return {
     number: order.number,
@@ -64,6 +72,8 @@ export function customerReceipt(
     paidCents: totals.paidCents,
     tenderedCents: extra.tenderedCents,
     changeCents: extra.changeCents,
+    payments: extra.payments,
+    couponCode: extra.couponCode,
     status: totals.status,
     phone: extra.settings.receipt.phone,
     address: extra.settings.receipt.address,

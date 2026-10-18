@@ -17,10 +17,12 @@ import {
 } from "@pos/db";
 import {
   countedCents,
+  couponOf,
   type DayReport,
   type DayReportPaper,
   dayReport,
   driverOf,
+  paymentOf,
   type MoneyEvent,
   type OrderTotals,
   orderTotals,
@@ -153,7 +155,8 @@ export function createDayStore(db: Db, tenantId: string, timeZone: string, setti
         customerName: order.customerName,
         totals,
         sentToday: !carried,
-        discountApprovedBy: discount ? name(discount.approvedBy) : null,
+        discountApprovedBy: discount?.approvedBy ? name(discount.approvedBy) : null,
+        couponCode: couponOf(discount?.data)?.code ?? null,
         leftUnpaidBy: left ? name(left.staffId) : null,
         lines: lines
           .filter((l) => l.orderId === order.id)
@@ -170,6 +173,7 @@ export function createDayStore(db: Db, tenantId: string, timeZone: string, setti
         staffName: name(e.staffId),
         reason: e.reason,
         driverName: driverOf(e.data)?.driverName ?? null,
+        ...(e.kind === "payment" || e.kind === "refund" ? { method: paymentOf(e.data).method, walletName: paymentOf(e.data).walletName ?? null } : {}),
       }));
     return { list, report: dayReport(reportOrders, reportEvents, day.floatCents) };
   }

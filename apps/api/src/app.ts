@@ -5,6 +5,7 @@ import { PIN_PATTERN } from "./auth/pin.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
 import type { AuthStore, Role, SessionStaff } from "./auth/store.js";
 import type { AuditLog } from "./audit.js";
+import { CouponRefused, type CouponStore } from "./coupons.js";
 import { DayRefused, type DayStore } from "./days.js";
 import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
 import { NotFound, type MenuStore } from "./menu/store.js";
@@ -37,6 +38,7 @@ export interface AppDeps {
   days: DayStore;
   audit: AuditLog;
   delivery: DeliveryStore;
+  coupons: CouponStore;
   /** Tells order screens to reload the menu (Socket.IO in production). */
   menuChanged: () => void;
   /** Tells today's orders and the delivery board to reload. */
@@ -53,6 +55,35 @@ const discountRequest = z.union([
   z.object({ percentBp: z.number().int().min(1).max(10_000), managerPin: z.string().regex(PIN_PATTERN) }),
   z.object({ amountPounds: wholePounds.min(1), managerPin: z.string().regex(PIN_PATTERN) }),
 ]);
+/** One payment: cash handed over, or a wallet transfer with its reference (Milestone 8). */
+const tender = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("cash"), tenderedPounds: wholePounds.min(1) }),
+  z.object({ method: z.literal("wallet"), wallet: z.string().max(30), amountPounds: wholePounds.min(1), reference: z.string().trim().min(1).max(60) }),
+]);
+/** A body with only `tenderedPounds` is cash, as before wallets. */
+const cashByDefault = (body: unknown) =>
+  body && typeof body === "object" && !("method" in body) && "tenderedPounds" in body ? { ...body, method: "cash" } : body;
+const payRequest = z.preprocess(cashByDefault, tender);
+const deliveredRequest = z.preprocess(
+  (body) => {
+    if (!body || typeof body !== "object" || "tender" in body || !("tenderedPounds" in body)) return body;
+    const { tenderedPounds } = body as { tenderedPounds: unknown };
+    return { tender: tenderedPounds === null ? null : { method: "cash", tenderedPounds } };
+  },
+  z.object({ tender: tender.nullable().default(null) }),
+);
+const couponInput = z.object({
+  code: z.string().trim().min(1).max(30),
+  percentBp: z.number().int().min(1).max(10_000).nullable().optional(),
+  amountPounds: wholePounds.min(1).nullable().optional(),
+  endsOn: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
+  maxUses: z.number().int().min(1).max(1_000_000).nullable().optional(),
+  active: z.boolean().optional(),
+});
 const closeRequest = z.object({
   dayId: z.string().regex(/^[0-9a-f-]{36}$/i),
   notes: z.array(z.object({ pounds: z.number().int().min(1).max(1_000_000), count: z.number().int().min(0).max(100_000) })).max(30),
@@ -250,6 +281,19 @@ export function createApp(deps: AppDeps) {
     res.status(found ? 204 : 404).end();
   });
 
+  admin.get("/coupons", async (_req, res) => {
+    res.json(await deps.coupons.list());
+  });
+
+  admin.post("/coupons", async (req, res) => {
+    res.status(201).json({ id: await deps.coupons.add(couponInput.parse(req.body), req.staff!.staffId) });
+  });
+
+  admin.patch("/coupons/:id", async (req, res) => {
+    const found = await deps.coupons.update(req.params.id!, defined(couponInput.partial().parse(req.body)), req.staff!.staffId);
+    res.status(found ? 204 : 404).end();
+  });
+
   admin.get("/settings", async (_req, res) => {
     res.json(await deps.settings.all());
   });
@@ -295,6 +339,11 @@ export function createApp(deps: AppDeps) {
     res.json(await deps.money.today());
   });
 
+  /** The wallets the pay dialog offers. */
+  orders.get("/wallets", async (_req, res) => {
+    res.json((await deps.settings.get("wallets")).filter((w) => w.active));
+  });
+
   orders.get("/:id", async (req, res) => {
     res.json(await deps.money.detail(req.params.id!));
   });
@@ -314,14 +363,21 @@ export function createApp(deps: AppDeps) {
     res.json(await deps.money.discount(req.params.id!, amount, req.staff!.staffId, manager.staffId));
   });
 
+  // A coupon needs no manager PIN: the admin approved it when making it.
+  orders.post("/:id/coupon", async (req, res) => {
+    const { code } = z.object({ code: z.string().trim().min(1).max(30) }).parse(req.body);
+    const result = await deps.money.coupon(req.params.id!, code, req.staff!.staffId);
+    await deps.audit.record(req.staff!.staffId, "coupon_used", { orderId: req.params.id, code: result.code, amountCents: result.amountCents });
+    res.json(result);
+  });
+
   orders.post("/:id/delivery-fee", async (req, res) => {
     const { amountPounds } = z.object({ amountPounds: wholePounds }).parse(req.body);
     res.json(await deps.money.deliveryFee(req.params.id!, amountPounds, req.staff!.staffId));
   });
 
   orders.post("/:id/pay", async (req, res) => {
-    const { tenderedPounds } = z.object({ tenderedPounds: wholePounds.min(1) }).parse(req.body);
-    res.json(await deps.money.payCash(req.params.id!, tenderedPounds, req.staff!.staffId));
+    res.json(await deps.money.pay(req.params.id!, payRequest.parse(req.body), req.staff!.staffId));
   });
 
   orders.post("/:id/void", async (req, res) => {
@@ -358,8 +414,8 @@ export function createApp(deps: AppDeps) {
   });
 
   delivery.post("/orders/:id/delivered", async (req, res) => {
-    const { tenderedPounds } = z.object({ tenderedPounds: wholePounds.min(1).nullable().default(null) }).parse(req.body);
-    res.json(await deps.delivery.delivered(req.params.id!, tenderedPounds, req.staff!.staffId));
+    const { tender: paid } = deliveredRequest.parse(req.body);
+    res.json(await deps.delivery.delivered(req.params.id!, paid, req.staff!.staffId));
   });
 
   delivery.post("/orders/:id/returned", async (req, res) => {
@@ -424,6 +480,7 @@ export function createApp(deps: AppDeps) {
     if (err instanceof z.ZodError) return void res.status(400).json({ error: "invalid", issues: err.issues });
     if (err instanceof NotFound) return void res.status(404).json({ error: "not_found" });
     if (err instanceof StaffRefused) return void res.status(409).json({ error: err.code });
+    if (err instanceof CouponRefused) return void res.status(409).json({ error: err.code });
     if (err instanceof DeliveryRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof MoneyRefused) return void res.status(err.code === "not_found" ? 404 : 409).json({ error: err.code });
     if (err instanceof DayRefused) {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { type AppDeps, createApp } from "./app.js";
 import { createLoginLimiter } from "./auth/limiter.js";
 import type { AuthStore, SessionStaff } from "./auth/store.js";
+import { CouponRefused, type CouponStore } from "./coupons.js";
 import { DayRefused, type DayStore } from "./days.js";
 import { DeliveryRefused, type DeliveryStore } from "./delivery.js";
 import { StaffRefused, type StaffStore } from "./auth/staff.js";
@@ -88,7 +89,11 @@ function fakeMoney(): MoneyStore {
     detail: record("detail"),
     discount: record("discount"),
     deliveryFee: record("deliveryFee"),
-    payCash: record("payCash"),
+    pay: record("pay"),
+    coupon: async (...args: unknown[]) => {
+      moneyCalls.push(["coupon", ...args]);
+      return { totals: {}, code: "PIZZA10", amountCents: 5_000 };
+    },
     void: record("void"),
     refund: record("refund"),
     reprint: record("reprint"),
@@ -124,6 +129,18 @@ function fakeDays(): DayStore {
 }
 
 const auditCalls: unknown[][] = [];
+
+const couponCalls: unknown[][] = [];
+function fakeCoupons(): CouponStore {
+  const record =
+    (name: string, result: unknown = undefined) =>
+    async (...args: unknown[]) => {
+      couponCalls.push([name, ...args]);
+      if (name === "add" && (args[0] as { code: string }).code === "TAKEN") throw new CouponRefused("duplicate");
+      return result as never;
+    };
+  return { list: record("list", []), add: record("add", "c-1"), update: record("update", true) } as unknown as CouponStore;
+}
 
 const deliveryCalls: unknown[][] = [];
 function fakeDelivery(): DeliveryStore {
@@ -166,6 +183,7 @@ async function call(method: string, path: string, opts: { deps?: Partial<AppDeps
     money: fakeMoney(),
     settings: fakeSettings(),
     delivery: fakeDelivery(),
+    coupons: fakeCoupons(),
     menuChanged: () => menuChanges++,
     ordersChanged: () => ordersChanges++,
     ...opts.deps,
@@ -363,7 +381,26 @@ describe("money", () => {
   it("takes whole pounds of cash only", async () => {
     expect((await call("POST", `/orders/${id}/pay`, { token: "t-2222", body: { tenderedPounds: 50.5 } })).status).toBe(400);
     expect((await call("POST", `/orders/${id}/pay`, { token: "t-2222", body: { tenderedPounds: 5000 } })).status).toBe(200);
-    expect(moneyCalls.at(-1)).toEqual(["payCash", id, 5000, "s-cash"]);
+    expect(moneyCalls.at(-1)).toEqual(["pay", id, { method: "cash", tenderedPounds: 5000 }, "s-cash"]);
+  });
+
+  it("takes a wallet transfer with its reference", async () => {
+    const wallet = { method: "wallet", wallet: "syriatel", amountPounds: 1000, reference: "TX-1234" };
+    expect((await call("POST", `/orders/${id}/pay`, { token: "t-2222", body: { ...wallet, reference: " " } })).status).toBe(400);
+    expect((await call("POST", `/orders/${id}/pay`, { token: "t-2222", body: wallet })).status).toBe(200);
+    expect(moneyCalls.at(-1)).toEqual(["pay", id, wallet, "s-cash"]);
+  });
+
+  it("lists only the wallets that are turned on", async () => {
+    const res = await call("GET", "/orders/wallets", { token: "t-2222" });
+    expect((await res.json()).map((w: { key: string }) => w.key)).toEqual(["syriatel", "mtn", "sham"]);
+  });
+
+  it("applies a coupon without a manager PIN, and logs it", async () => {
+    const res = await call("POST", `/orders/${id}/coupon`, { token: "t-2222", body: { code: "pizza10" } });
+    expect(res.status).toBe(200);
+    expect(moneyCalls.at(-1)).toEqual(["coupon", id, "pizza10", "s-cash"]);
+    expect(auditCalls.at(-1)).toEqual(["s-cash", "coupon_used", { orderId: id, code: "PIZZA10", amountCents: 5_000 }]);
   });
 
   it("lets a cashier void with a listed reason", async () => {
@@ -376,6 +413,20 @@ describe("money", () => {
     expect((await call("GET", "/admin/settings", { token: "t-2222" })).status).toBe(403);
     expect(await (await call("GET", "/admin/settings", { token: "t-1111" })).json()).toMatchObject({ tax: { rateBp: 500 } });
     expect((await call("PATCH", "/admin/settings", { token: "t-1111", body: { tax: { rateBp: -1, nameAr: "x", nameEn: "" } } })).status).toBe(400);
+    const twice = [DEFAULT_SETTINGS.wallets[0], DEFAULT_SETTINGS.wallets[0]];
+    expect((await call("PATCH", "/admin/settings", { token: "t-1111", body: { wallets: twice } })).status).toBe(400);
+  });
+
+  it("lets only the admin make coupons, with a % or an amount off", async () => {
+    const coupon = { code: "PIZZA10", percentBp: 1000, endsOn: "2026-12-31", maxUses: 50 };
+    expect((await call("POST", "/admin/coupons", { token: "t-3333", body: coupon })).status).toBe(403);
+    expect((await call("POST", "/admin/coupons", { token: "t-1111", body: { ...coupon, endsOn: "31/12/2026" } })).status).toBe(400);
+    expect((await call("POST", "/admin/coupons", { token: "t-1111", body: coupon })).status).toBe(201);
+    expect(couponCalls.at(-1)).toEqual(["add", coupon, "s-admin"]);
+    expect((await call("POST", "/admin/coupons", { token: "t-1111", body: { ...coupon, code: "TAKEN" } })).status).toBe(409);
+    const id = "33333333-3333-4333-8333-333333333333";
+    expect((await call("PATCH", `/admin/coupons/${id}`, { token: "t-1111", body: { active: false } })).status).toBe(204);
+    expect(couponCalls.at(-1)).toEqual(["update", id, { active: false }, "s-admin"]);
   });
 });
 
@@ -439,9 +490,12 @@ describe("delivery board", () => {
 
   it("marks an order delivered with the cash the driver brought", async () => {
     expect((await call("POST", `/delivery/orders/${order}/delivered`, { token: "t-2222", body: { tenderedPounds: 1300 } })).status).toBe(200);
-    expect(deliveryCalls.at(-1)).toEqual(["delivered", order, 1300, "s-cash"]);
+    expect(deliveryCalls.at(-1)).toEqual(["delivered", order, { method: "cash", tenderedPounds: 1300 }, "s-cash"]);
     expect((await call("POST", `/delivery/orders/${order}/delivered`, { token: "t-2222", body: {} })).status).toBe(200);
     expect(deliveryCalls.at(-1)).toEqual(["delivered", order, null, "s-cash"]);
+    const wallet = { method: "wallet", wallet: "sham", amountPounds: 1300, reference: "88771" };
+    expect((await call("POST", `/delivery/orders/${order}/delivered`, { token: "t-2222", body: { tender: wallet } })).status).toBe(200);
+    expect(deliveryCalls.at(-1)).toEqual(["delivered", order, wallet, "s-cash"]);
   });
 
   it("lets only the admin manage drivers", async () => {

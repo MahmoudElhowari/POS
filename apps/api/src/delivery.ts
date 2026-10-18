@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from "drizzle-orm";
 import { type Db, drivers, orderEvents, orders } from "@pos/db";
-import { type DeliveryStatus, deliveryStatus, type DriverRef, type DriverRow, type OrderTotals, orderTotals } from "@pos/shared";
+import { type DeliveryStatus, deliveryStatus, type DriverRef, type DriverRow, type OrderTotals, orderTotals, type Tender } from "@pos/shared";
 import type { AuditLog } from "./audit.js";
 import { type DayStore, toMoneyEvent, type Tx } from "./days.js";
 import type { MoneyStore } from "./orders/money.js";
@@ -102,17 +102,17 @@ export function createDeliveryStore(db: Db, tenantId: string, days: DayStore, mo
     },
 
     /**
-     * The driver is back: the order was delivered. Cash the driver collected is
-     * paid in the same step. The driver keeps the delivery fee, which the
+     * The driver is back: the order was delivered. What the customer paid, in
+     * cash to the driver or by wallet, is taken in the same step. The driver keeps the delivery fee, which the
      * event carries so the Z takes it out of the drawer.
      */
-    async delivered(orderId: string, tenderedPounds: number | null, staffId: string) {
+    async delivered(orderId: string, tender: Tender | null, staffId: string) {
       return db.transaction(async (tx) => {
         const day = await days.ensureOpen(tx);
         const { delivery, totals } = await load(tx, orderId);
         if (delivery.state !== "out" || !delivery.driverId) throw new DeliveryRefused("not_out");
         const who: DriverRef = { driverId: delivery.driverId, driverName: delivery.driverName ?? "" };
-        const paid = tenderedPounds ? await money.cashIn(tx, day.id, orderId, tenderedPounds, staffId, who) : null;
+        const paid = tender ? await money.take(tx, day.id, orderId, tender, staffId, who) : null;
         await tx.insert(orderEvents).values({ tenantId, orderId, kind: "delivered", staffId, amountCents: totals.deliveryFeeCents, data: who, dayId: day.id });
         return { totals: paid?.totals ?? totals, changeCents: paid?.changeCents ?? 0 };
       });

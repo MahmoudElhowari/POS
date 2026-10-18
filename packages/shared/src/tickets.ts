@@ -57,6 +57,10 @@ export interface CustomerReceipt {
   /** Cash handed over and change, from the latest payment. */
   tenderedCents: number;
   changeCents: number;
+  /** Every payment, oldest first (Milestone 8); receipts queued before it have none. */
+  payments?: { method: "cash" | "wallet"; nameAr: string; amountCents: number; tenderedCents: number; changeCents: number; reference: string | null }[];
+  /** The coupon behind the discount, if any. */
+  couponCode?: string | null;
   status: OrderStatus;
   phone: string;
   address: string;

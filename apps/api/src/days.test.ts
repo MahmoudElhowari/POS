@@ -63,7 +63,7 @@ describe.skipIf(!url)("close of day (Postgres)", () => {
     const s = await store();
     const a = await s.send("pickup", "أ");
     await s.send("delivery", "ب");
-    await s.money.payCash(a.id, 1000, s.staffId);
+    await s.money.pay(a.id, { method: "cash", tenderedPounds: 1000 }, s.staffId);
     await s.days.setFloat(500, s.staffId);
 
     const { report } = await s.days.x();
@@ -90,7 +90,7 @@ describe.skipIf(!url)("close of day (Postgres)", () => {
   it("counts the drawer note by note, prints the Z, and starts the next day at order 1", async () => {
     const s = await store();
     const a = await s.send("pickup", "أ");
-    await s.money.payCash(a.id, 1000, s.staffId);
+    await s.money.pay(a.id, { method: "cash", tenderedPounds: 1000 }, s.staffId);
     await s.days.setFloat(200, s.staffId);
     const day = await s.dayId();
 
@@ -120,7 +120,7 @@ describe.skipIf(!url)("close of day (Postgres)", () => {
 
     const today = await s.money.today();
     expect(today.map((o) => [o.id, o.carried])).toEqual([[d.id, true]]);
-    await s.money.payCash(d.id, 850, s.staffId);
+    await s.money.pay(d.id, { method: "cash", tenderedPounds: 850 }, s.staffId);
     const { report } = await s.days.x();
     // The sale was yesterday's; the cash is today's.
     expect(report).toMatchObject({ ordersCount: 0, netCents: 0, cashCents: 85_000, carried: [] });

@@ -44,7 +44,8 @@
       "bulk": "Bulk prices",
       "staff": "Staff",
       "settings": "Settings",
-      "audit": "Audit log"
+      "audit": "Audit log",
+      "coupons": "Coupons"
     },
     "currency": "SYP",
     "noPrice": "No price",
@@ -230,7 +231,10 @@
     "directions": "Address",
     "note": "Note",
     "close": "Close",
-    "carried": "From an earlier day"
+    "carried": "From an earlier day",
+    "walletPayment": "Paid by {{name}}",
+    "reference": "ref {{ref}}",
+    "coupon": "coupon {{code}}"
   },
   "pay": {
     "title": "Pay · order {{number}}",
@@ -243,7 +247,7 @@
     "due": "Due",
     "feeLabel": "Delivery fee (SYP)",
     "applyFee": "Apply",
-    "addDiscount": "Discount (manager approval)",
+    "addDiscount": "Discount or coupon",
     "tendered": "Cash received",
     "clear": "Clear",
     "payCash": "Pay cash",
@@ -265,18 +269,31 @@
       "bad_amount": "Type a valid amount",
       "not_approver": "Wrong manager PIN",
       "locked": "Too many tries, wait a moment",
-      "server": "Could not reach the server"
+      "server": "Could not reach the server",
+      "no_wallet": "This wallet is turned off",
+      "over_due": "More than is due; a wallet payment gives no change"
     }
   },
   "discount": {
-    "title": "Order discount",
+    "title": "Discount or coupon",
     "hint": "Needs a manager or admin PIN",
     "percent": "Percent %",
     "amount": "Amount SYP",
     "value": "Discount",
     "managerPin": "Manager PIN",
     "apply": "Apply discount",
-    "cancel": "Back"
+    "cancel": "Back",
+    "coupon": "Coupon",
+    "couponHint": "No manager PIN needed",
+    "couponCode": "Coupon code",
+    "applyCoupon": "Apply coupon",
+    "couponApplied": "Coupon {{code}}: {{amount}} SYP off",
+    "couponErrors": {
+      "no_coupon": "No coupon has this code",
+      "inactive": "This coupon is turned off",
+      "expired": "This coupon has ended",
+      "used_up": "This coupon has been used as many times as allowed"
+    }
   },
   "reason": {
     "voidTitle": "Void order {{number}}",
@@ -310,7 +327,13 @@
     "day": "Close of day",
     "autoCloseHour": "Automatic close hour if nobody closes the day (0 to 12)",
     "notes": "Note values for the cash count (comma separated)",
-    "badDay": "Check the close hour and the note values"
+    "badDay": "Check the close hour and the note values",
+    "wallets": "Mobile wallets",
+    "walletsHint": "Wallets the restaurant takes. Turning one off hides it from the pay screen; past payments keep their old name.",
+    "walletNameAr": "Arabic name",
+    "walletNameEn": "English name",
+    "addWallet": "Add wallet",
+    "badWallet": "Every wallet needs an Arabic name"
   },
   "reports": {
     "tabs": {
@@ -345,7 +368,7 @@
     "drawer": "Drawer",
     "floatRow": "Opening float",
     "cashIn": "+ Cash taken",
-    "refundsOut": "− Refunds",
+    "refundsOut": "− Cash refunds",
     "expected": "Expected in the drawer",
     "counted": "Counted",
     "difference": "Difference",
@@ -388,7 +411,11 @@
     "drivers": "Drivers",
     "driverFeesOut": "− Drivers' fees",
     "driverRow": "{{name}} ({{n}})",
-    "driverDetail": "Collected {{collected}} · fees {{fees}}"
+    "driverDetail": "Collected {{collected}} · fees {{fees}}",
+    "refundSplit": "{{cash}} in cash and {{wallet}} by wallet",
+    "byCoupon": "coupon {{code}}",
+    "coupons": "Coupons",
+    "couponRow": "{{code}} ({{n}})"
   },
   "audit": {
     "day": "Business day",
@@ -414,7 +441,10 @@
       "delivered": "Delivered",
       "returned": "Brought back",
       "driver_added": "Driver added",
-      "driver_changed": "Driver changed"
+      "driver_changed": "Driver changed",
+      "coupon_added": "Coupon added",
+      "coupon_changed": "Coupon changed",
+      "coupon_used": "Coupon used"
     }
   },
   "drivers": {
@@ -467,9 +497,43 @@
       "duplicate": "Pick each order once",
       "bad_amount": "Type the amount in pounds",
       "paid": "The order is fully paid",
-      "server": "Could not connect, try again"
+      "server": "Could not connect, try again",
+      "no_wallet": "This wallet is turned off",
+      "over_due": "More than is due"
     },
     "sendOut": "Out for delivery ({{count}})",
-    "sentOut": "Out with {{name}}: {{count}}"
+    "sentOut": "Out with {{name}}: {{count}}",
+    "deliveredWallet": "Delivered, paid by wallet"
+  },
+  "wallet": {
+    "method": "Payment method",
+    "cash": "Cash",
+    "wallet": "Wallet",
+    "which": "Wallet",
+    "none": "No wallets are turned on; the admin adds them in settings",
+    "amount": "Amount transferred (SYP)",
+    "splitHint": "Due: {{amount}} SYP. Type less to take the rest in cash.",
+    "reference": "Transfer number from the customer's phone",
+    "pay": "Confirm wallet payment",
+    "pickWallet": "Pick the wallet",
+    "needReference": "Type the transfer number"
+  },
+  "coupons": {
+    "title": "Coupons",
+    "help": "The cashier types the code in the discount dialog; no manager PIN is needed. It comes off the food, never the delivery fee.",
+    "off": "{{amount}} off",
+    "endsOn": "until {{date}}",
+    "noEnd": "no end date",
+    "uses": "used {{uses}} times",
+    "usesOf": "used {{uses}} of {{max}}",
+    "empty": "No coupons yet",
+    "new": "New coupon",
+    "code": "Code",
+    "lastDay": "Last day (optional)",
+    "maxUses": "Orders allowed (optional)",
+    "add": "Add coupon",
+    "added": "Coupon added",
+    "duplicate": "A coupon with this code exists",
+    "bad": "Type the code and the discount (1 to 100%)"
   }
 }

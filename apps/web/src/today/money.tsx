@@ -4,7 +4,21 @@ import { useTranslation } from "react-i18next";
 import { ApiError } from "../api";
 import { percentText, pounds } from "../format";
 
-const KNOWN = ["not_found", "voided", "refunded", "paid", "has_payments", "not_paid", "not_delivery", "too_much", "bad_amount", "not_approver", "locked"];
+const KNOWN = [
+  "not_found",
+  "voided",
+  "refunded",
+  "paid",
+  "has_payments",
+  "not_paid",
+  "not_delivery",
+  "too_much",
+  "bad_amount",
+  "not_approver",
+  "locked",
+  "no_wallet",
+  "over_due",
+];
 
 /** The message for a refused money action. */
 export function moneyError(err: unknown, t: TFunction) {
